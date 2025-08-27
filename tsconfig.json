@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    /* Vite + TypeScript Configuration Standard */
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    
+    /* Module Resolution */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    
+    /* Type Checking */
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    
+    /* Interop */
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    /* Paths */
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+      "@core/*": ["src/core/*"],
+      "@abstractions/*": ["src/abstractions/*"],
+      "@base/*": ["src/base/*"],
+      "@factories/*": ["src/factories/*"],
+      "@objects/*": ["src/objects/*"],
+      "@renderer": ["src/renderer/index"],
+      "@renderer/*": ["src/renderer/*"],
+      "@types": ["src/types/index"],
+      "@export": ["src/export/index"],
+      "@export/*": ["src/export/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

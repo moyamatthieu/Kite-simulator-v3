@@ -1,41 +1,81 @@
 /**
- * Types partagés pour le système CAO KISS
+ * Types centralisés pour le système de visualisation 3D
+ * Interface unique et cohérente pour tous les objets
  */
 
 import * as THREE from 'three';
 
-// Configuration pour les matériaux
-export interface MaterialOptions {
-    color?: string | number;
-    side?: THREE.Side;
-    transparent?: boolean;
-    opacity?: number;
-    roughness?: number;
-    metalness?: number;
-}
-
-// Position et rotation dans l'espace 3D
+/**
+ * Position 3D simple [x, y, z]
+ */
 export type Position3D = [number, number, number];
-export type Rotation3D = [number, number, number];
 
-// Interface pour un objet créable
+/**
+ * Interface principale que TOUS les objets doivent implémenter
+ * 🎮 v3.0: Compatible avec l'architecture StructuredObject + Node3D
+ */
 export interface ICreatable {
-    create(): Assembly;
-    getName(): string;
-    getDescription(): string;
-    getPrimitiveCount(): number;
+  /**
+   * Retourne l'objet lui-même (StructuredObject hérite de Node3D)
+   * Pattern fluent pour la nouvelle architecture
+   */
+  create(): this;
+
+  /**
+   * Nom affiché dans l'interface utilisateur
+   */
+  getName(): string;
+
+  /**
+   * Description courte de l'objet
+   */
+  getDescription(): string;
+
+  /**
+   * Nombre de primitives utilisées (pour statistiques)
+   */
+  getPrimitiveCount(): number;
 }
 
-// Import Assembly pour éviter la dépendance circulaire
-import { Assembly } from '../core/Assembly';
+/**
+ * Options pour créer des surfaces
+ */
+export interface SurfaceOptions {
+  color?: string;
+  transparent?: boolean;
+  opacity?: number;
+  doubleSide?: boolean;
+  wireframe?: boolean;
+}
 
-// Métadonnées d'un objet
+/**
+ * Configuration pour les matériaux
+ */
+export interface MaterialConfig {
+  color: string;
+  transparent?: boolean;
+  opacity?: number;
+  metalness?: number;
+  roughness?: number;
+  side?: THREE.Side;
+}
+
+/**
+ * Interface pour un point nommé dans l'espace 3D
+ */
+export interface NamedPoint {
+  name: string;
+  position: THREE.Vector3;
+  visible?: boolean;
+}
+
+/**
+ * Métadonnées optionnelles pour les objets
+ */
 export interface ObjectMetadata {
-    name: string;
-    description: string;
-    category: 'furniture' | 'toy' | 'tool' | 'decoration';
-    complexity: 'simple' | 'medium' | 'complex';
-    primitiveCount: number;
-    author?: string;
-    version?: string;
+  category?: string;
+  complexity?: 'simple' | 'medium' | 'complex';
+  tags?: string[];
+  author?: string;
+  version?: string;
 }

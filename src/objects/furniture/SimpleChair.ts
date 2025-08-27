@@ -3,9 +3,9 @@
  * Exemple de migration vers le système de points structurés
  */
 
-import { StructuredObject } from '../core/StructuredObject';
-import { ICreatable } from '../types';
-import { Primitive } from '../core/Primitive';
+import { StructuredObject } from '@core/StructuredObject';
+import { ICreatable } from '@types';
+import { Primitive } from '@core/Primitive';
 
 export class SimpleChair extends StructuredObject implements ICreatable {
     // Paramètres de la chaise
@@ -21,9 +21,9 @@ export class SimpleChair extends StructuredObject implements ICreatable {
     };
     
     constructor(customParams: Partial<typeof SimpleChair.prototype.params> = {}) {
-        const mergedParams = { ...SimpleChair.prototype.params, ...customParams };
         super("Chaise Simple", false);
-        this.params = mergedParams;
+        this.params = { ...this.params, ...customParams };
+        this.init(); // Initialiser après la configuration
     }
     
     /**
@@ -68,43 +68,43 @@ export class SimpleChair extends StructuredObject implements ICreatable {
     /**
      * Construit la structure (pieds et barres de support)
      */
-    protected buildFrame(): void {
+    protected buildStructure(): void {
         const p = this.params;
         
         // Les 4 pieds
-        this.cylinderBetweenPoints('PIED_BAS_AVANT_GAUCHE', 'PIED_HAUT_AVANT_GAUCHE', p.legRadius, p.woodColor);
-        this.cylinderBetweenPoints('PIED_BAS_AVANT_DROIT', 'PIED_HAUT_AVANT_DROIT', p.legRadius, p.woodColor);
-        this.cylinderBetweenPoints('PIED_BAS_ARRIERE_GAUCHE', 'PIED_HAUT_ARRIERE_GAUCHE', p.legRadius, p.woodColor);
-        this.cylinderBetweenPoints('PIED_BAS_ARRIERE_DROIT', 'PIED_HAUT_ARRIERE_DROIT', p.legRadius, p.woodColor);
+        this.addCylinderBetweenPoints('PIED_BAS_AVANT_GAUCHE', 'PIED_HAUT_AVANT_GAUCHE', p.legRadius, p.woodColor);
+        this.addCylinderBetweenPoints('PIED_BAS_AVANT_DROIT', 'PIED_HAUT_AVANT_DROIT', p.legRadius, p.woodColor);
+        this.addCylinderBetweenPoints('PIED_BAS_ARRIERE_GAUCHE', 'PIED_HAUT_ARRIERE_GAUCHE', p.legRadius, p.woodColor);
+        this.addCylinderBetweenPoints('PIED_BAS_ARRIERE_DROIT', 'PIED_HAUT_ARRIERE_DROIT', p.legRadius, p.woodColor);
         
         // Barres de support horizontales
-        this.cylinderBetweenPoints('BARRE_AVANT_GAUCHE', 'BARRE_AVANT_DROIT', p.legRadius * 0.8, p.woodColor);
-        this.cylinderBetweenPoints('BARRE_ARRIERE_GAUCHE', 'BARRE_ARRIERE_DROIT', p.legRadius * 0.8, p.woodColor);
+        this.addCylinderBetweenPoints('BARRE_AVANT_GAUCHE', 'BARRE_AVANT_DROIT', p.legRadius * 0.8, p.woodColor);
+        this.addCylinderBetweenPoints('BARRE_ARRIERE_GAUCHE', 'BARRE_ARRIERE_DROIT', p.legRadius * 0.8, p.woodColor);
     }
     
     /**
      * Construit les surfaces (assise et dossier)
      */
-    protected buildSurface(): void {
+    protected buildSurfaces(): void {
         const p = this.params;
         
         // Assise - utiliser une boîte car plus approprié qu'une surface fine
         const assisePos = this.getPoint('CENTRE_ASSISE');
         if (assisePos) {
             const seat = Primitive.box(p.seatWidth, p.seatThickness, p.seatDepth, p.woodColor);
-            this.add(seat, [assisePos.x, assisePos.y, assisePos.z]);
+            this.addPrimitiveAt(seat, [assisePos.x, assisePos.y, assisePos.z]);
         }
         
         // Dossier
         const dossierPos = this.getPoint('CENTRE_DOSSIER');
         if (dossierPos) {
             const backrest = Primitive.box(p.seatWidth, p.backHeight, p.backThickness, p.woodColor);
-            this.add(backrest, [dossierPos.x, dossierPos.y, dossierPos.z]);
+            this.addPrimitiveAt(backrest, [dossierPos.x, dossierPos.y, dossierPos.z]);
         }
     }
     
     // Implémentation de l'interface ICreatable
-    create(): StructuredObject {
+    create(): this {
         return this;
     }
     

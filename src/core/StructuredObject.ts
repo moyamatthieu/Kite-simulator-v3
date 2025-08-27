@@ -1,117 +1,121 @@
 /**
- * StructuredObject.ts - Classe de base pour objets 3D complexes avec points nommés
+ * StructuredObject.ts - Classe de base unifiée pour TOUS les objets 3D
  * 
- * Fournit une architecture orientée objet pour créer des objets 3D complexes
- * en définissant d'abord des points anatomiques, puis en construisant la structure
- * et les surfaces entre ces points.
+ * Architecture orientée objet avec points anatomiques nommés
+ * Pattern unique utilisé par tous les objets du projet
+ * 🎮 Compatible Godot via Node3D
  */
 
 import * as THREE from 'three';
-import { Assembly } from './Assembly';
-import { Primitive } from './Primitive';
+import { Position3D, NamedPoint, SurfaceOptions, MaterialConfig } from '@types';
+import { Primitive } from '@core/Primitive';
+import { Node3D } from '@core/Node3D';
 
 /**
- * Interface pour un nœud dans la hiérarchie de l'objet
+ * Classe abstraite de base pour tous les objets 3D structurés
+ * 🎮 Hérite de Node3D pour la compatibilité Godot
  */
-export interface Node3D {
-  position: THREE.Vector3;
-  label: string;
-  visible?: boolean;
-  children?: Node3D[];
-}
-
-/**
- * Type pour une position 3D simple
- */
-export type Position3D = [number, number, number];
-
-/**
- * Options pour créer une surface
- */
-export interface SurfaceOptions {
-  color?: string;
-  transparent?: boolean;
-  opacity?: number;
-  doubleSide?: boolean;
-}
-
-/**
- * Classe abstraite pour objets structurés avec points anatomiques
- */
-export abstract class StructuredObject extends Assembly {
+export abstract class StructuredObject extends Node3D {
   /**
-   * Map des points nommés de l'objet
+   * Points anatomiques nommés de l'objet
    */
   protected points: Map<string, THREE.Vector3> = new Map();
   
   /**
-   * Map des nœuds labellisés
+   * Points avec marqueurs visuels (debug)
    */
-  protected nodes: Map<string, Node3D> = new Map();
+  protected namedPoints: NamedPoint[] = [];
   
   /**
    * Affichage des labels en mode debug
    */
-  protected showLabels: boolean = false;
+  public showDebugPoints: boolean = false;
+  
+  /**
+   * Affichage des labels de texte
+   */
+  public showLabels: boolean = false;
 
-  constructor(name: string, showLabels: boolean = false) {
+  constructor(name: string, showDebugPoints: boolean = false) {
     super(name);
-    this.showLabels = showLabels;
-    this.initialize();
+    this.nodeType = 'StructuredObject';
+    this.showDebugPoints = showDebugPoints;
+    // L'initialisation sera appelée par la classe enfant après configuration
   }
 
   /**
-   * Méthode d'initialisation appelée automatiquement
+   * Initialisation automatique de l'objet
    */
   protected initialize(): void {
+    // Vider le groupe au cas où
+    this.clear();
+    
+    // Construire l'objet dans l'ordre
     this.definePoints();
-    this.buildFrame();
-    this.buildSurface();
-    if (this.showLabels) {
-      this.createLabels();
+    this.buildStructure();
+    this.buildSurfaces();
+    
+    // Afficher les points de debug si demandé
+    if (this.showDebugPoints) {
+      this.createDebugMarkers();
     }
   }
 
   /**
+   * Initialisation publique à appeler par les classes enfants
+   */
+  public init(): void {
+    this.initialize();
+  }
+
+  /**
    * Définit tous les points anatomiques de l'objet
-   * À implémenter dans les classes dérivées
+   * À implémenter dans chaque classe dérivée
    */
   protected abstract definePoints(): void;
 
   /**
-   * Construit la structure rigide (frame) de l'objet
-   * À implémenter dans les classes dérivées
+   * Construit la structure rigide de l'objet (frame, squelette)
+   * À implémenter dans chaque classe dérivée
    */
-  protected abstract buildFrame(): void;
+  protected abstract buildStructure(): void;
 
   /**
-   * Construit les surfaces de l'objet
-   * À implémenter dans les classes dérivées
+   * Construit les surfaces et détails visuels
+   * À implémenter dans chaque classe dérivée
    */
-  protected abstract buildSurface(): void;
+  protected abstract buildSurfaces(): void;
 
   /**
-   * Définit un point nommé
+   * Définit un point nommé dans l'espace
    */
   protected setPoint(name: string, position: Position3D): void {
-    this.points.set(name, new THREE.Vector3(...position));
+    const vector = new THREE.Vector3(position[0], position[1], position[2]);
+    this.points.set(name, vector);
+    
+    // Ajouter aux points nommés pour le debug
+    this.namedPoints.push({
+      name,
+      position: vector.clone(),
+      visible: this.showDebugPoints
+    });
   }
 
   /**
    * Récupère un point par son nom
    */
-  protected getPoint(name: string): THREE.Vector3 | undefined {
+  public getPoint(name: string): THREE.Vector3 | undefined {
     return this.points.get(name);
   }
 
   /**
    * Crée un cylindre entre deux points nommés
    */
-  protected cylinderBetweenPoints(
+  protected addCylinderBetweenPoints(
     point1Name: string,
     point2Name: string,
     radius: number,
-    color: string
+    material: string | MaterialConfig
   ): THREE.Mesh | null {
     const p1 = this.getPoint(point1Name);
     const p2 = this.getPoint(point2Name);
@@ -121,178 +125,189 @@ export abstract class StructuredObject extends Assembly {
       return null;
     }
 
-    // Calculer la distance entre les points
+    // Calculer la distance et l'orientation
     const distance = p1.distanceTo(p2);
-    
-    // Créer le cylindre
-    const cylinder = Primitive.cylinder(radius, distance, color);
-    
-    // Positionner au milieu des deux points
     const midpoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
     
-    // Orienter le cylindre vers le second point
+    // Créer le cylindre
+    const cylinder = Primitive.cylinder(radius, distance, material);
+    
+    // Orienter le cylindre
     const direction = new THREE.Vector3().subVectors(p2, p1).normalize();
     const quaternion = new THREE.Quaternion().setFromUnitVectors(
       new THREE.Vector3(0, 1, 0),
       direction
     );
     cylinder.quaternion.copy(quaternion);
+    cylinder.position.copy(midpoint);
     
-    // Ajouter à l'assemblage
-    this.add(cylinder, [midpoint.x, midpoint.y, midpoint.z]);
-    
+    // Ajouter au groupe
+    this.add(cylinder);
     return cylinder;
   }
 
   /**
-   * Crée une surface triangulaire entre trois points nommés
+   * Crée une surface entre des points nommés
    */
-  protected surfaceBetweenPoints(
+  protected addSurfaceBetweenPoints(
     pointNames: string[],
-    options: SurfaceOptions = {}
+    material: string | MaterialConfig
   ): THREE.Mesh | null {
     if (pointNames.length < 3) {
       console.warn('Il faut au moins 3 points pour créer une surface');
       return null;
     }
 
-    const vertices: number[] = [];
-    const positions: THREE.Vector3[] = [];
-
-    // Récupérer les positions des points
+    const points: THREE.Vector3[] = [];
+    
+    // Récupérer tous les points
     for (const name of pointNames) {
       const point = this.getPoint(name);
       if (!point) {
         console.warn(`Point ${name} non trouvé`);
         return null;
       }
-      positions.push(point);
-      vertices.push(point.x, point.y, point.z);
+      points.push(point);
     }
 
-    // Créer la géométrie
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-
-    // Créer les faces (triangulation simple pour N points)
-    if (pointNames.length === 3) {
-      // Triangle simple
-      geometry.setIndex([0, 1, 2]);
-    } else if (pointNames.length === 4) {
-      // Quad = 2 triangles
-      geometry.setIndex([0, 1, 2, 0, 2, 3]);
-    } else {
-      // Fan triangulation pour plus de points
-      const indices: number[] = [];
-      for (let i = 1; i < pointNames.length - 1; i++) {
-        indices.push(0, i, i + 1);
-      }
-      geometry.setIndex(indices);
-    }
-
-    geometry.computeVertexNormals();
-
-    // Créer le matériau
-    const material = new THREE.MeshStandardMaterial({
-      color: options.color || '#888888',
-      transparent: options.transparent || false,
-      opacity: options.opacity || 1,
-      side: options.doubleSide ? THREE.DoubleSide : THREE.FrontSide
-    });
-
-    // Créer le mesh
-    const mesh = new THREE.Mesh(geometry, material);
-    this.add(mesh);
-
-    return mesh;
+    // Créer la surface
+    const surface = Primitive.surface(points, material);
+    this.add(surface);
+    return surface;
   }
 
   /**
-   * Ajoute un nœud labellisé
+   * Ajoute une primitive à une position donnée
    */
-  protected addLabeledNode(name: string, position: Position3D): Node3D {
-    const node: Node3D = {
-      position: new THREE.Vector3(...position),
-      label: name,
-      visible: this.showLabels,
-      children: []
-    };
-    
-    this.nodes.set(name, node);
-    
-    // Si les labels sont activés, créer une sphère de debug
-    if (this.showLabels) {
-      const sphere = Primitive.sphere(0.02, '#ffff00');
-      this.add(sphere, position);
-    }
-    
-    return node;
+  protected addPrimitiveAt(
+    primitive: THREE.Mesh,
+    position: Position3D
+  ): void {
+    primitive.position.set(position[0], position[1], position[2]);
+    this.add(primitive);
   }
 
   /**
-   * Connecte deux nœuds avec un cylindre
+   * Ajoute une primitive à la position d'un point nommé
    */
-  protected connectNodes(
-    node1Name: string,
-    node2Name: string,
-    radius: number = 0.01,
-    color: string = '#666666'
-  ): THREE.Mesh | null {
-    const node1 = this.nodes.get(node1Name);
-    const node2 = this.nodes.get(node2Name);
-    
-    if (!node1 || !node2) {
-      console.warn(`Nœuds ${node1Name} ou ${node2Name} non trouvés`);
-      return null;
+  protected addPrimitiveAtPoint(
+    primitive: THREE.Mesh,
+    pointName: string
+  ): boolean {
+    const point = this.getPoint(pointName);
+    if (!point) {
+      console.warn(`Point ${pointName} non trouvé`);
+      return false;
     }
-
-    // Utiliser les positions des nœuds comme points
-    this.setPoint(`_node_${node1Name}`, node1.position.toArray() as Position3D);
-    this.setPoint(`_node_${node2Name}`, node2.position.toArray() as Position3D);
     
-    return this.cylinderBetweenPoints(
-      `_node_${node1Name}`,
-      `_node_${node2Name}`,
-      radius,
-      color
-    );
+    primitive.position.copy(point);
+    this.add(primitive);
+    return true;
   }
 
   /**
-   * Crée les labels visuels pour tous les points
+   * Crée des marqueurs visuels pour tous les points (debug)
    */
-  protected createLabels(): void {
+  protected createDebugMarkers(): void {
     this.points.forEach((position, name) => {
-      // Créer une petite sphère jaune pour chaque point
-      const marker = Primitive.sphere(0.015, '#ffff00');
-      this.add(marker, [position.x, position.y, position.z]);
+      // Petite sphère jaune pour marquer le point
+      const marker = Primitive.sphere(0.02, '#ffff00');
+      marker.position.copy(position);
+      this.add(marker);
       
-      // Note: Pour un vrai système de labels texte, il faudrait
-      // utiliser THREE.CSS2DRenderer ou THREE.Sprite avec texture texte
+      // Ajouter label texte si activé
+      if (this.showLabels) {
+        const label = this.createTextLabel(name);
+        label.position.copy(position);
+        label.position.y += 0.05; // Décaler le label au-dessus du point
+        this.add(label);
+      }
     });
+  }
+  
+  /**
+   * Crée un label de texte pour un point
+   */
+  private createTextLabel(text: string): THREE.Sprite {
+    // Créer un canvas pour le texte
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d')!;
+    canvas.width = 256;
+    canvas.height = 64;
+    
+    // Style du texte
+    context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    context.font = 'Bold 24px Arial';
+    context.fillStyle = 'black';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+    
+    // Créer une texture depuis le canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    
+    // Créer un sprite avec la texture
+    const spriteMaterial = new THREE.SpriteMaterial({ 
+      map: texture,
+      transparent: true
+    });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    
+    // Ajuster la taille du sprite
+    sprite.scale.set(0.3, 0.075, 1);
+    
+    return sprite;
   }
 
   /**
-   * Active/désactive l'affichage des labels
+   * Active/désactive l'affichage des marqueurs de debug
+   */
+  public setShowDebugPoints(show: boolean): void {
+    this.showDebugPoints = show;
+    // Reconstruire l'objet pour appliquer le changement
+    this.initialize();
+  }
+  
+  /**
+   * Active/désactive l'affichage des labels de texte
    */
   public setShowLabels(show: boolean): void {
     this.showLabels = show;
-    if (show) {
-      this.createLabels();
+    // Si les points de debug ne sont pas activés et qu'on veut les labels, activer les deux
+    if (show && !this.showDebugPoints) {
+      this.showDebugPoints = true;
     }
+    // Reconstruire l'objet pour appliquer le changement
+    this.initialize();
   }
 
   /**
-   * Retourne la liste des points définis
+   * Retourne tous les noms de points définis
    */
   public getPointNames(): string[] {
     return Array.from(this.points.keys());
   }
 
   /**
-   * Retourne la liste des nœuds
+   * Retourne le nombre de points définis
    */
-  public getNodeNames(): string[] {
-    return Array.from(this.nodes.keys());
+  public getPointCount(): number {
+    return this.points.size;
+  }
+
+  /**
+   * Retourne les informations sur un point
+   */
+  public getPointInfo(name: string): NamedPoint | undefined {
+    const point = this.getPoint(name);
+    if (!point) return undefined;
+    
+    return {
+      name,
+      position: point.clone(),
+      visible: this.showDebugPoints
+    };
   }
 }

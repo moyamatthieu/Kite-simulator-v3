@@ -1,0 +1,14 @@
+{
+    "claudeCodeChat.permissions.yoloMode": true,
+    
+    // Configuration minimale TypeScript
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "typescript.preferences.importModuleSpecifier": "shortest",
+    
+    // Formatage essentiel
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit"
+    }
+}

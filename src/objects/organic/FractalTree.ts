@@ -3,9 +3,10 @@
  * Utilise StructuredObject avec génération récursive de branches
  */
 
-import { ICreatable } from '../types';
-import { StructuredObject, Position3D } from '../core/StructuredObject';
-import { Primitive } from '../core/Primitive';
+import { ICreatable } from '@types';
+import { StructuredObject } from '@core/StructuredObject';
+import { Primitive } from '@core/Primitive';
+import { Position3D } from '@types';
 import * as THREE from 'three';
 
 export class FractalTree extends StructuredObject implements ICreatable {
@@ -20,6 +21,7 @@ export class FractalTree extends StructuredObject implements ICreatable {
         super("Fractal Tree");
         this.depth = params.depth || 3;
         this.branches = params.branches || 3;
+        this.init(); // Initialiser après la configuration
     }
     
     protected definePoints(): void {
@@ -67,8 +69,8 @@ export class FractalTree extends StructuredObject implements ICreatable {
         }
     }
     
-    protected buildFrame(): void {
-        // Le frame est constitué de toutes les branches qui forment la structure
+    protected buildStructure(): void {
+        // Le structure est constituée de toutes les branches qui forment l'arbre
         this.branchPoints.forEach((branchInfo, name) => {
             const { position, level, angle } = branchInfo;
             const length = 0.5 * Math.pow(0.7, 3 - level);
@@ -85,12 +87,21 @@ export class FractalTree extends StructuredObject implements ICreatable {
         });
     }
     
-    protected buildSurface(): void {
-        // Pas de surface spécifique - l'arbre est entièrement constitué de branches
-        // On pourrait ajouter des feuilles ici si nécessaire
+    protected buildSurfaces(): void {
+        // Ajouter des feuilles simples aux extrémités
+        this.branchPoints.forEach((branchInfo, name) => {
+            const { position, level } = branchInfo;
+            
+            // Ajouter des feuilles seulement aux branches de niveau 1 (extrémités)
+            if (level === 1) {
+                const leaf = Primitive.sphere(0.02, '#228B22');
+                const length = 0.5 * Math.pow(0.7, 3 - level);
+                this.addPrimitiveAt(leaf, [position[0], position[1] + length, position[2]]);
+            }
+        });
     }
     
-    create(): StructuredObject {
+    create(): this {
         return this;
     }
     

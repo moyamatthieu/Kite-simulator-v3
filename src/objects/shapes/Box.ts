@@ -3,10 +3,10 @@
  * Utilise StructuredObject pour définir les points anatomiques de la boîte
  */
 
-import { ICreatable } from '../types';
-import { StructuredObject, Position3D } from '../core/StructuredObject';
-import { Primitive } from '../core/Primitive';
-import * as THREE from 'three';
+import { ICreatable } from '@types';
+import { StructuredObject } from '@core/StructuredObject';
+import { Primitive } from '@core/Primitive';
+
 
 export class Box extends StructuredObject implements ICreatable {
     private params = {
@@ -21,6 +21,7 @@ export class Box extends StructuredObject implements ICreatable {
     constructor(customParams: Partial<typeof Box.prototype.params> = {}) {
         super("Box with Lid");
         this.params = { ...this.params, ...customParams };
+        this.init(); // Initialiser après la configuration
     }
     
     protected definePoints(): void {
@@ -54,13 +55,11 @@ export class Box extends StructuredObject implements ICreatable {
         }
     }
     
-    protected buildFrame(): void {
-        const p = this.params;
-        
-        // Pas de frame structurelle - la boîte est entièrement constituée de surfaces
+    protected buildStructure(): void {
+        // Pas de structure spécifique - la boîte est constituée de surfaces
     }
     
-    protected buildSurface(): void {
+    protected buildSurfaces(): void {
         const p = this.params;
         const hw = p.width / 2;
         const hd = p.depth / 2;
@@ -68,20 +67,20 @@ export class Box extends StructuredObject implements ICreatable {
         
         // === FOND ===
         const bottom = Primitive.box(p.width, wt, p.depth, p.color);
-        this.add(bottom, [0, wt/2, 0]);
+        this.addPrimitiveAt(bottom, [0, wt/2, 0]);
         
         // === PAROIS ===
         const frontWall = Primitive.box(p.width, p.height, wt, p.color);
-        this.add(frontWall, [0, p.height/2, -hd + wt/2]);
+        this.addPrimitiveAt(frontWall, [0, p.height/2, -hd + wt/2]);
         
         const backWall = Primitive.box(p.width, p.height, wt, p.color);
-        this.add(backWall, [0, p.height/2, hd - wt/2]);
+        this.addPrimitiveAt(backWall, [0, p.height/2, hd - wt/2]);
         
         const leftWall = Primitive.box(wt, p.height, p.depth, p.color);
-        this.add(leftWall, [-hw + wt/2, p.height/2, 0]);
+        this.addPrimitiveAt(leftWall, [-hw + wt/2, p.height/2, 0]);
         
         const rightWall = Primitive.box(wt, p.height, p.depth, p.color);
-        this.add(rightWall, [hw - wt/2, p.height/2, 0]);
+        this.addPrimitiveAt(rightWall, [hw - wt/2, p.height/2, 0]);
         
         // === COUVERCLE ===
         const lid = Primitive.box(p.width + wt * 2, wt, p.depth + wt * 2, p.color);
@@ -109,7 +108,7 @@ export class Box extends StructuredObject implements ICreatable {
         this.add(handle);
     }
     
-    create(): StructuredObject {
+    create(): this {
         return this;
     }
     

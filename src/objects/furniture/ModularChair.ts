@@ -3,9 +3,9 @@
  * Démontre l'utilisation modulaire du pattern StructuredObject
  */
 
-import { ICreatable } from '../types';
-import { StructuredObject, Position3D } from '../core/StructuredObject';
-import { Primitive } from '../core/Primitive';
+import { ICreatable } from '@types';
+import { StructuredObject } from '@core/StructuredObject';
+import { Primitive } from '@core/Primitive';
 import * as THREE from 'three';
 
 // Configuration par défaut de la chaise modulaire
@@ -34,6 +34,7 @@ export class ModularChair extends StructuredObject implements ICreatable {
     constructor(customParams: Partial<typeof DEFAULT_CONFIG> = {}) {
         super("Modular Chair");
         this.params = { ...DEFAULT_CONFIG, ...customParams };
+        this.init(); // Initialiser après la configuration
     }
     
     protected definePoints(): void {
@@ -84,12 +85,12 @@ export class ModularChair extends StructuredObject implements ICreatable {
         this.setPoint('leg_br', [hw - offset, p.seat_height/2, hd - offset]);
     }
     
-    protected buildFrame(): void {
-        // Le frame est constitué des pieds (structure porteuse)
+    protected buildStructure(): void {
+        // Le structure est constituée des pieds (structure porteuse)
         this.buildLegModule();
     }
     
-    protected buildSurface(): void {
+    protected buildSurfaces(): void {
         // Les surfaces sont l'assise et le dossier
         this.buildSeatingModule();
         this.buildBackrestModule();
@@ -101,7 +102,7 @@ export class ModularChair extends StructuredObject implements ICreatable {
     private buildSeatingModule(): void {
         const p = this.params;
         const seat = Primitive.box(p.seat_width, p.seat_thickness, p.seat_depth, p.wood_color);
-        this.add(seat, [0, p.seat_height, 0]);
+        this.addPrimitiveAt(seat, [0, p.seat_height, 0]);
     }
     
     /**
@@ -112,7 +113,7 @@ export class ModularChair extends StructuredObject implements ICreatable {
         const hd = p.seat_depth / 2;
         
         const backrest = Primitive.box(p.seat_width, p.back_height, p.back_thickness, p.wood_color);
-        this.add(backrest, [0, p.seat_height + p.back_height/2, -hd + p.back_thickness/2]);
+        this.addPrimitiveAt(backrest, [0, p.seat_height + p.back_height/2, -hd + p.back_thickness/2]);
     }
     
     /**
@@ -132,12 +133,12 @@ export class ModularChair extends StructuredObject implements ICreatable {
         legPositions.forEach((pos) => {
             if (pos) {
                 const leg = Primitive.box(p.leg_size, p.seat_height, p.leg_size, p.leg_color);
-                this.add(leg, [pos.x, pos.y, pos.z]);
+                this.addPrimitiveAt(leg, [pos.x, pos.y, pos.z]);
             }
         });
     }
     
-    create(): StructuredObject {
+    create(): this {
         return this;
     }
     

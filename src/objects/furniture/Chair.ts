@@ -3,9 +3,9 @@
  * Utilise StructuredObject pour définir les points anatomiques de la chaise
  */
 
-import { ICreatable } from '../types';
-import { StructuredObject, Position3D } from '../core/StructuredObject';
-import { Primitive } from '../core/Primitive';
+import { ICreatable } from '@types';
+import { StructuredObject } from '@core/StructuredObject';
+import { Primitive } from '@core/Primitive';
 import * as THREE from 'three';
 
 // Configuration par défaut de la chaise
@@ -40,6 +40,7 @@ export class Chair extends StructuredObject implements ICreatable {
     constructor(customParams: Partial<typeof DEFAULT_CONFIG> = {}) {
         super("Chair");
         this.params = { ...DEFAULT_CONFIG, ...customParams };
+        this.init(); // Initialiser après la configuration
     }
     
     protected definePoints(): void {
@@ -75,10 +76,10 @@ export class Chair extends StructuredObject implements ICreatable {
         }
     }
     
-    protected buildFrame(): void {
+    protected buildStructure(): void {
         const p = this.params;
         
-        // Pieds de la chaise (frame principal)
+        // Pieds de la chaise (structure principale)
         const legPositions = [
             this.getPoint('leg_fl'), 
             this.getPoint('leg_fr'), 
@@ -94,26 +95,26 @@ export class Chair extends StructuredObject implements ICreatable {
                 } else {
                     leg = Primitive.cylinder(p.legRadius, p.seatHeight, p.legColor);
                 }
-                this.add(leg, [pos.x, pos.y, pos.z]);
+                this.addPrimitiveAt(leg, [pos.x, pos.y, pos.z]);
             }
         });
         
         // Supports pour accoudoirs si nécessaire
         if (p.hasArmrests) {
             const leftSupport = Primitive.cylinder(p.legRadius * 0.8, p.armrestHeight, p.legColor);
-            this.add(leftSupport, [-p.seatWidth/2, p.seatHeight + p.armrestHeight/2, p.seatDepth/4]);
+            this.addPrimitiveAt(leftSupport, [-p.seatWidth/2, p.seatHeight + p.armrestHeight/2, p.seatDepth/4]);
             
             const rightSupport = Primitive.cylinder(p.legRadius * 0.8, p.armrestHeight, p.legColor);
-            this.add(rightSupport, [p.seatWidth/2, p.seatHeight + p.armrestHeight/2, p.seatDepth/4]);
+            this.addPrimitiveAt(rightSupport, [p.seatWidth/2, p.seatHeight + p.armrestHeight/2, p.seatDepth/4]);
         }
     }
     
-    protected buildSurface(): void {
+    protected buildSurfaces(): void {
         const p = this.params;
         
         // === ASSISE ===
         const seat = Primitive.box(p.seatWidth, p.seatThickness, p.seatDepth, p.seatColor);
-        this.add(seat, [0, p.seatHeight, 0]);
+        this.addPrimitiveAt(seat, [0, p.seatHeight, 0]);
         
         // === DOSSIER ===
         let back = Primitive.box(p.seatWidth, p.backHeight, p.backThickness, p.backColor);
@@ -129,10 +130,10 @@ export class Chair extends StructuredObject implements ICreatable {
             for (let i = 0; i < 5; i++) {
                 const slat = Primitive.box(p.seatWidth * 0.15, p.backHeight * 0.8, p.backThickness, p.backColor);
                 const x = (i - 2) * p.seatWidth * 0.2;
-                this.add(slat, [x, p.seatHeight + p.backHeight/2, -p.seatDepth/2 + p.backThickness/2]);
+                this.addPrimitiveAt(slat, [x, p.seatHeight + p.backHeight/2, -p.seatDepth/2 + p.backThickness/2]);
             }
         } else {
-            this.add(back, [0, p.seatHeight + p.backHeight/2, -p.seatDepth/2 + p.backThickness/2]);
+            this.addPrimitiveAt(back, [0, p.seatHeight + p.backHeight/2, -p.seatDepth/2 + p.backThickness/2]);
         }
         
         // === ACCOUDOIRS ===
@@ -141,14 +142,14 @@ export class Chair extends StructuredObject implements ICreatable {
             const armrestWidth = p.legRadius * 2;
             
             const leftArmrest = Primitive.box(armrestWidth, armrestWidth, armrestLength, p.seatColor);
-            this.add(leftArmrest, [-p.seatWidth/2, p.seatHeight + p.armrestHeight, 0]);
+            this.addPrimitiveAt(leftArmrest, [-p.seatWidth/2, p.seatHeight + p.armrestHeight, 0]);
             
             const rightArmrest = Primitive.box(armrestWidth, armrestWidth, armrestLength, p.seatColor);
-            this.add(rightArmrest, [p.seatWidth/2, p.seatHeight + p.armrestHeight, 0]);
+            this.addPrimitiveAt(rightArmrest, [p.seatWidth/2, p.seatHeight + p.armrestHeight, 0]);
         }
     }
     
-    create(): StructuredObject {
+    create(): this {
         return this;
     }
     

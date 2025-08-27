@@ -4,10 +4,10 @@
  * Note: Version simplifiée sans opérations CSG complexes
  */
 
-import { ICreatable } from '../types';
-import { StructuredObject, Position3D } from '../core/StructuredObject';
-import { Primitive } from '../core/Primitive';
-import * as THREE from 'three';
+import { ICreatable } from '@types';
+import { StructuredObject } from '@core/StructuredObject';
+import { Primitive } from '@core/Primitive';
+
 
 // Configuration par défaut de l'engrenage
 export const DEFAULT_CONFIG = {
@@ -38,6 +38,7 @@ export class Gear extends StructuredObject implements ICreatable {
     constructor(customParams: Partial<typeof DEFAULT_CONFIG> = {}) {
         super("Gear");
         this.params = { ...DEFAULT_CONFIG, ...customParams };
+        this.init(); // Initialiser après la configuration
     }
     
     protected definePoints(): void {
@@ -79,12 +80,12 @@ export class Gear extends StructuredObject implements ICreatable {
         }
     }
     
-    protected buildFrame(): void {
+    protected buildStructure(): void {
         const p = this.params;
         
         // Corps principal de l'engrenage (cylindre interne)
         const body = Primitive.cylinder(p.innerRadius, p.thickness, p.color);
-        this.add(body, [0, p.thickness/2, 0]);
+        this.addPrimitiveAt(body, [0, p.thickness/2, 0]);
         
         // Rayons si demandés
         if (p.hasSpokes) {
@@ -99,12 +100,12 @@ export class Gear extends StructuredObject implements ICreatable {
                 const z = Math.sin(angle) * spokeLength / 2;
                 
                 spoke.rotation.y = angle;
-                this.add(spoke, [x, p.thickness/2, z]);
+                this.addPrimitiveAt(spoke, [x, p.thickness/2, z]);
             }
         }
     }
     
-    protected buildSurface(): void {
+    protected buildSurfaces(): void {
         const p = this.params;
         
         // === DENTS ===
@@ -122,17 +123,17 @@ export class Gear extends StructuredObject implements ICreatable {
             const z = Math.sin(angle) * (p.innerRadius + p.toothHeight/2);
             
             tooth.rotation.y = angle;
-            this.add(tooth, [x, p.thickness/2, z]);
+            this.addPrimitiveAt(tooth, [x, p.thickness/2, z]);
         }
         
         // === TROU CENTRAL ===
         // Note: Dans une vraie implémentation CSG, on soustrairait ce cylindre
         // Ici on ajoute juste un anneau visuel pour indiquer le trou
         const holeRing = Primitive.cylinder(p.holeRadius + 0.001, p.thickness * 0.1, '#333333');
-        this.add(holeRing, [0, p.thickness + 0.001, 0]);
+        this.addPrimitiveAt(holeRing, [0, p.thickness + 0.001, 0]);
     }
     
-    create(): StructuredObject {
+    create(): this {
         return this;
     }
     

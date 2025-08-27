@@ -1,95 +1,149 @@
 /**
- * Primitive - Générateur de formes 3D de base
- * Principe KISS : seulement les formes essentielles
+ * Primitive.ts - Générateurs de primitives Three.js propres et simples
+ * Utilitaires pour créer les formes de base avec matériaux cohérents
  */
 
 import * as THREE from 'three';
-import { MaterialOptions } from '../types';
+import { MaterialConfig } from '@types';
 
+/**
+ * Classe statique pour générer les primitives de base
+ */
 export class Primitive {
-    /**
-     * Créer une boîte
-     */
-    static box(
-        width = 1, 
-        height = 1, 
-        depth = 1, 
-        color: string | number = '#808080',
-        options: MaterialOptions = {}
-    ): THREE.Mesh {
-        const geometry = new THREE.BoxGeometry(width, height, depth);
-        const material = new THREE.MeshPhongMaterial({ 
-            color,
-            ...options 
-        });
-        return new THREE.Mesh(geometry, material);
+  /**
+   * Créer un matériau standardisé
+   */
+  private static createMaterial(config: string | MaterialConfig): THREE.MeshStandardMaterial {
+    if (typeof config === 'string') {
+      return new THREE.MeshStandardMaterial({ color: config });
     }
     
-    /**
-     * Créer une sphère
-     */
-    static sphere(
-        radius = 0.5, 
-        color: string | number = '#808080',
-        options: MaterialOptions = {}
-    ): THREE.Mesh {
-        const geometry = new THREE.SphereGeometry(radius, 32, 16);
-        const material = new THREE.MeshPhongMaterial({ 
-            color,
-            ...options 
-        });
-        return new THREE.Mesh(geometry, material);
+    return new THREE.MeshStandardMaterial({
+      color: config.color,
+      transparent: config.transparent || false,
+      opacity: config.opacity || 1,
+      metalness: config.metalness || 0,
+      roughness: config.roughness || 0.5,
+      side: config.side || THREE.FrontSide
+    });
+  }
+
+  /**
+   * Créer une boîte (cube ou parallélépipède)
+   */
+  static box(
+    width: number, 
+    height: number, 
+    depth: number, 
+    material: string | MaterialConfig
+  ): THREE.Mesh {
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+    const mat = this.createMaterial(material);
+    return new THREE.Mesh(geometry, mat);
+  }
+
+  /**
+   * Créer une sphère
+   */
+  static sphere(
+    radius: number, 
+    material: string | MaterialConfig,
+    segments: number = 16
+  ): THREE.Mesh {
+    const geometry = new THREE.SphereGeometry(radius, segments, segments);
+    const mat = this.createMaterial(material);
+    return new THREE.Mesh(geometry, mat);
+  }
+
+  /**
+   * Créer un cylindre
+   */
+  static cylinder(
+    radius: number, 
+    height: number, 
+    material: string | MaterialConfig,
+    segments: number = 16
+  ): THREE.Mesh {
+    const geometry = new THREE.CylinderGeometry(radius, radius, height, segments);
+    const mat = this.createMaterial(material);
+    return new THREE.Mesh(geometry, mat);
+  }
+
+  /**
+   * Créer un cône
+   */
+  static cone(
+    radius: number, 
+    height: number, 
+    material: string | MaterialConfig,
+    segments: number = 16
+  ): THREE.Mesh {
+    const geometry = new THREE.ConeGeometry(radius, height, segments);
+    const mat = this.createMaterial(material);
+    return new THREE.Mesh(geometry, mat);
+  }
+
+  /**
+   * Créer un plan (surface plate)
+   */
+  static plane(
+    width: number, 
+    height: number, 
+    material: string | MaterialConfig
+  ): THREE.Mesh {
+    const geometry = new THREE.PlaneGeometry(width, height);
+    const mat = this.createMaterial(material);
+    return new THREE.Mesh(geometry, mat);
+  }
+
+  /**
+   * Créer un tore (anneau)
+   */
+  static torus(
+    radius: number, 
+    tubeRadius: number, 
+    material: string | MaterialConfig,
+    segments: number = 16
+  ): THREE.Mesh {
+    const geometry = new THREE.TorusGeometry(radius, tubeRadius, segments, segments);
+    const mat = this.createMaterial(material);
+    return new THREE.Mesh(geometry, mat);
+  }
+
+  /**
+   * Créer une surface à partir de points (triangulation simple)
+   */
+  static surface(
+    points: THREE.Vector3[], 
+    material: string | MaterialConfig
+  ): THREE.Mesh {
+    const geometry = new THREE.BufferGeometry();
+    const vertices: number[] = [];
+
+    // Ajouter les points
+    points.forEach(point => {
+      vertices.push(point.x, point.y, point.z);
+    });
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+    // Triangulation simple pour N points
+    const indices: number[] = [];
+    if (points.length === 3) {
+      indices.push(0, 1, 2);
+    } else if (points.length === 4) {
+      indices.push(0, 1, 2, 0, 2, 3);
+    } else {
+      // Fan triangulation pour plus de points
+      for (let i = 1; i < points.length - 1; i++) {
+        indices.push(0, i, i + 1);
+      }
     }
-    
-    /**
-     * Créer un cylindre
-     */
-    static cylinder(
-        radius = 0.5, 
-        height = 1, 
-        color: string | number = '#808080',
-        options: MaterialOptions = {}
-    ): THREE.Mesh {
-        const geometry = new THREE.CylinderGeometry(radius, radius, height, 32);
-        const material = new THREE.MeshPhongMaterial({ 
-            color,
-            ...options 
-        });
-        return new THREE.Mesh(geometry, material);
-    }
-    
-    /**
-     * Créer un cône
-     */
-    static cone(
-        radius = 0.5, 
-        height = 1, 
-        radialSegments = 8, 
-        color: string | number = '#808080',
-        options: MaterialOptions = {}
-    ): THREE.Mesh {
-        const geometry = new THREE.ConeGeometry(radius, height, radialSegments);
-        const material = new THREE.MeshPhongMaterial({ 
-            color,
-            ...options 
-        });
-        return new THREE.Mesh(geometry, material);
-    }
-    
-    /**
-     * Créer un tore (donut)
-     */
-    static torus(
-        radius = 0.5,
-        tube = 0.2,
-        color: string | number = '#808080',
-        options: MaterialOptions = {}
-    ): THREE.Mesh {
-        const geometry = new THREE.TorusGeometry(radius, tube, 16, 100);
-        const material = new THREE.MeshPhongMaterial({ 
-            color,
-            ...options 
-        });
-        return new THREE.Mesh(geometry, material);
-    }
+
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    const mat = this.createMaterial(material);
+    return new THREE.Mesh(geometry, mat);
+  }
 }
