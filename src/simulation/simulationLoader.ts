@@ -32,36 +32,36 @@ export class SimulationLoader {
     private currentSimulation: SimulationInfo | null = null;
     private container: HTMLElement;
     private onSimulationChange?: (info: SimulationInfo) => void;
-    
+
     constructor(container: HTMLElement) {
         this.container = container;
         this.discoverSimulations();
     }
-    
+
     /**
      * Découvre automatiquement toutes les simulations disponibles
      * Utilise import.meta.glob pour scanner les fichiers
      */
     private async discoverSimulations(): Promise<void> {
         console.log('🔍 Recherche des simulations disponibles...');
-        
+
         // Utiliser import.meta.glob pour trouver tous les fichiers simulation*.ts
         const simulationModules = import.meta.glob('./simulation*.ts');
-        
+
         for (const path in simulationModules) {
             // Extraire le nom du fichier et la version
             const filename = path.split('/').pop() || '';
             const match = filename.match(/simulation(V?\d+)?\.ts/);
-            
+
             if (match) {
                 let version = match[1] || '';
                 if (!version) version = 'V1'; // simulation.ts devient V1
                 if (!version.startsWith('V')) version = 'V' + version;
-                
+
                 // Déterminer le nom et la description basés sur la version
                 let name = `Simulation ${version}`;
                 let description = 'Simulation de cerf-volant';
-                
+
                 // Descriptions spécifiques par version
                 const descriptions: Record<string, string> = {
                     'V1': 'Version originale - Physique de base',
@@ -70,35 +70,35 @@ export class SimulationLoader {
                     'V4': 'Physique émergente pure - Modèle réaliste',
                     'V5': 'Version expérimentale'
                 };
-                
+
                 if (descriptions[version]) {
                     description = descriptions[version];
                 }
-                
+
                 const info: SimulationInfo = {
                     version,
                     filename,
                     name,
                     description
                 };
-                
+
                 this.simulations.set(version, info);
                 console.log(`✅ Trouvé: ${name} (${filename})`);
             }
         }
-        
+
         console.log(`📦 ${this.simulations.size} simulation(s) découverte(s)`);
-        
+
         // Créer l'interface de sélection
         this.createUI();
-        
+
         // Charger la première simulation par défaut
         const defaultVersion = this.getDefaultVersion();
         if (defaultVersion) {
             await this.loadSimulation(defaultVersion);
         }
     }
-    
+
     /**
      * Détermine la version par défaut à charger
      */
@@ -106,46 +106,46 @@ export class SimulationLoader {
         // Vérifier si une version est spécifiée dans l'URL
         const urlParams = new URLSearchParams(window.location.search);
         const versionParam = urlParams.get('version');
-        
+
         if (versionParam && this.simulations.has(versionParam)) {
             return versionParam;
         }
-        
+
         // Sinon prendre la dernière version disponible
         const versions = Array.from(this.simulations.keys()).sort();
         return versions[versions.length - 1] || null;
     }
-    
+
     /**
      * Charge une simulation spécifique
      */
-    public async loadSimulation(version: string): Promise<void> {
+    public async loadSimulation(version: string): Promise<boolean> {
         const info = this.simulations.get(version);
         if (!info) {
             console.error(`❌ Version ${version} non trouvée`);
-            return;
+            return false;
         }
-        
+
         console.log(`🚀 Chargement de ${info.name}...`);
-        
+
         // Nettoyer la simulation actuelle
         if (this.currentSimulation) {
             this.cleanupCurrentSimulation();
         }
-        
+
         // Nettoyer le container et Three.js
         this.cleanupContainer();
-        
+
         try {
             // Charger le module dynamiquement
             const modulePath = `./simulation${version === 'V1' ? '' : version}.ts`;
             const module = await import(/* @vite-ignore */ modulePath);
-            
+
             info.module = module;
-            
+
             // Chercher la classe principale exportée
             const mainClass = this.findMainClass(module);
-            
+
             if (mainClass) {
                 // Créer une instance de la simulation
                 console.log(`✨ Instanciation de ${mainClass.name}`);
@@ -153,29 +153,31 @@ export class SimulationLoader {
             } else {
                 console.log('⚡ Module chargé (pas de classe principale trouvée)');
             }
-            
+
             this.currentSimulation = info;
-            
+
             // Mettre à jour l'URL
             const url = new URL(window.location.href);
             url.searchParams.set('version', version);
             window.history.pushState({}, '', url);
-            
+
             // Notifier le changement
             if (this.onSimulationChange) {
                 this.onSimulationChange(info);
             }
-            
+
             // Mettre à jour l'interface
             this.updateUI(version);
-            
+
             console.log(`✅ ${info.name} chargée avec succès`);
-            
+            return true;
+
         } catch (error) {
             console.error(`❌ Erreur lors du chargement de ${info.name}:`, error);
+            return false;
         }
     }
-    
+
     /**
      * Trouve la classe principale dans le module
      */
@@ -185,47 +187,68 @@ export class SimulationLoader {
             'SimulationApp',
             'SimulationAppV2',
             'SimulationAppV3',
+            'SimulationAppV5',
             'KiteSimulationV4',
             'KiteSimulation',
             'App',
             'Main'
         ];
-        
+
         for (const name of possibleNames) {
             if (module[name] && typeof module[name] === 'function') {
                 return module[name];
             }
         }
-        
+
         // Si aucun nom connu, prendre le premier export qui est une classe
         for (const key in module) {
-            if (typeof module[key] === 'function' && 
+            if (typeof module[key] === 'function' &&
                 module[key].prototype &&
                 module[key].name.toLowerCase().includes('sim')) {
                 return module[key];
             }
         }
-        
+
         return null;
     }
-    
+
     /**
      * Nettoie la simulation actuelle
      */
     private cleanupCurrentSimulation(): void {
         if (this.currentSimulation?.instance) {
             console.log('🧹 Nettoyage de la simulation actuelle...');
-            
+
+            // Essayer de nettoyer le renderer Three.js si accessible
+            if (this.currentSimulation.instance.renderer) {
+                try {
+                    // Forcer le contexte WebGL à se perdre
+                    const canvas = this.currentSimulation.instance.renderer.domElement;
+                    const gl = this.currentSimulation.instance.renderer.getContext();
+                    if (gl) {
+                        const loseContext = gl.getExtension('WEBGL_lose_context');
+                        if (loseContext) {
+                            loseContext.loseContext();
+                        }
+                    }
+
+                    // Nettoyer le renderer
+                    this.currentSimulation.instance.renderer.dispose();
+                } catch (error) {
+                    console.warn('Erreur lors du nettoyage du renderer:', error);
+                }
+            }
+
             // Appeler la méthode cleanup si elle existe
             if (typeof this.currentSimulation.instance.cleanup === 'function') {
                 this.currentSimulation.instance.cleanup();
             }
-            
+
             // Forcer le garbage collection
             this.currentSimulation.instance = null;
         }
     }
-    
+
     /**
      * Nettoie le container et les ressources Three.js
      */
@@ -235,17 +258,13 @@ export class SimulationLoader {
             // Vérifier si c'est un canvas Three.js
             if (this.container.firstChild.nodeName === 'CANVAS') {
                 const canvas = this.container.firstChild as HTMLCanvasElement;
-                const gl = canvas.getContext('webgl') || canvas.getContext('webgl2');
-                if (gl) {
-                    const loseContext = gl.getExtension('WEBGL_lose_context');
-                    if (loseContext) {
-                        loseContext.loseContext();
-                    }
-                }
+
+                // Ne pas essayer d'obtenir le contexte, juste supprimer le canvas
+                console.log('🗑️ Suppression du canvas WebGL...');
             }
             this.container.removeChild(this.container.firstChild);
         }
-        
+
         // Nettoyer les event listeners globaux (approximatif)
         const newContainer = this.container.cloneNode(true) as HTMLElement;
         if (this.container.parentNode) {
@@ -253,7 +272,7 @@ export class SimulationLoader {
             this.container = newContainer;
         }
     }
-    
+
     /**
      * Crée l'interface utilisateur de sélection
      */
@@ -352,32 +371,32 @@ export class SimulationLoader {
             <div class="version-buttons" id="version-buttons"></div>
             <div class="simulation-info" id="simulation-info"></div>
         `;
-        
+
         document.body.appendChild(selector);
-        
+
         // Ajouter les boutons pour chaque version
         const buttonsContainer = document.getElementById('version-buttons');
         if (buttonsContainer) {
             const versions = Array.from(this.simulations.keys()).sort();
-            
+
             for (const version of versions) {
                 const info = this.simulations.get(version)!;
                 const button = document.createElement('button');
                 button.className = 'version-btn';
                 button.textContent = version;
                 button.onclick = () => this.loadSimulation(version);
-                
+
                 // Ajouter le tooltip
                 const tooltip = document.createElement('span');
                 tooltip.className = 'version-tooltip';
                 tooltip.textContent = info.description;
                 button.appendChild(tooltip);
-                
+
                 buttonsContainer.appendChild(button);
             }
         }
     }
-    
+
     /**
      * Met à jour l'interface après un changement de version
      */
@@ -391,7 +410,7 @@ export class SimulationLoader {
                 btn.classList.remove('active');
             }
         });
-        
+
         // Mettre à jour les informations
         const infoDiv = document.getElementById('simulation-info');
         if (infoDiv) {
@@ -401,28 +420,28 @@ export class SimulationLoader {
                 infoDiv.className = 'simulation-info active';
             }
         }
-        
+
         // Mettre à jour le titre de la page
         const info = this.simulations.get(activeVersion);
         if (info) {
             document.title = `${info.name} - Cerf-volant`;
         }
     }
-    
+
     /**
      * Définit un callback pour les changements de simulation
      */
     public onSimulationChanged(callback: (info: SimulationInfo) => void): void {
         this.onSimulationChange = callback;
     }
-    
+
     /**
      * Retourne la liste des simulations disponibles
      */
     public getAvailableSimulations(): SimulationInfo[] {
         return Array.from(this.simulations.values());
     }
-    
+
     /**
      * Retourne la simulation actuelle
      */
@@ -437,15 +456,15 @@ if (typeof window !== 'undefined') {
         const container = document.getElementById('app');
         if (container) {
             const loader = new SimulationLoader(container);
-            
+
             // Exposer le loader globalement pour debug
             (window as any).simulationLoader = loader;
-            
+
             // Logger les changements
             loader.onSimulationChanged((info) => {
                 console.log(`🎮 Simulation active: ${info.name}`);
             });
-            
+
             // Attendre que les simulations soient découvertes
             setTimeout(async () => {
                 // Charger V5 par défaut

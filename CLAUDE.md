@@ -288,29 +288,88 @@ const categories = await autoLoader.getCategories();
 - **`/src/simulation.ts`** : Version stable de la simulation physique
 - **`/src/simulationV2.ts`** : Version de développement pour nouvelles fonctionnalités
 - **`/src/simulationV3.ts`** : Version modulaire refactorisée avec architecture propre
-- **`/simulation.html`** : Interface HTML de la simulation (utilise actuellement simulationV3.ts)
+- **`/src/simulationV4.ts`** : Version avec améliorations de performance
+- **`/src/simulationV5.ts`** : Version avec physique émergente pure (ACTUELLEMENT UTILISÉE)
+- **`/simulation.html`** : Interface HTML de la simulation
 
-### Architecture de la Simulation
+### 🎯 Physique Émergente Pure (SimulationV5)
 
-La simulation implémente une physique réaliste de cerf-volant delta avec :
-- **Fenêtre de vent sphérique** : Le cerf-volant vole sur une sphère de rayon = longueur des lignes
-- **Contrôle par tension différentielle** : Tirer sur une ligne fait tourner le cerf-volant
-- **Vecteurs de force en mode debug** : Visualisation de la vitesse, portance et traînée
-- **Points de pivot souples** : Simulation des nœuds de connexion avec physique élastique
+#### Principe Fondamental : Le Cerf-volant comme Convertisseur de Vitesse
+
+Le cerf-volant transforme la vitesse **horizontale** du vent en mouvement **omnidirectionnel** sur une sphère :
+
+```
+Vent horizontal → Pression sur surfaces → Forces 3D → Mouvement sur la sphère
+      →                    ↓                   ↓              ↗ ↑ ↘
+                     (4 triangles)        (émergentes)    (omnidirectionnel)
+```
+
+#### Architecture Physique
+
+La simulation implémente une **physique 100% émergente** sans coefficients artificiels :
+
+1. **Calcul des Forces sur 4 Surfaces Triangulaires**
+   - Chaque surface a sa normale propre (peut pointer dans n'importe quelle direction)
+   - Force = 0.5 × ρ × V² × Area × cos(angle) dans la direction de la normale
+   - Les forces ne sont PAS forcément alignées avec le vent
+   - Whiskers à Z=-0.15 créent un angle dièdre naturel
+
+2. **Contrainte de Distance Stricte (Corde Réelle)**
+   ```typescript
+   // Les lignes sont des cordes : limite dure, pas de ressort
+   if (distance > lineLength) {
+       // Projection sur la sphère
+       newPosition = pilotPosition + direction * lineLength * 0.99
+       
+       // CRUCIAL : Annuler la composante radiale qui éloigne
+       if (radialVelocity > 0) {
+           velocity -= direction * radialVelocity
+       }
+   }
+   ```
+   - La corde ne peut JAMAIS s'étirer
+   - Seul le mouvement tangentiel est permis
+   - Le kite "glisse" sur la sphère invisible
+
+3. **Orientation Naturelle par les Brides**
+   - Points CTRL_GAUCHE et CTRL_DROIT à Z=0.4 (40cm avant)
+   - Créent un moment de redressement naturel
+   - PAS d'inclinaison artificielle forcée
+   - L'orientation émerge de la physique
+
+4. **Conversion d'Énergie**
+   ```
+   Énergie cinétique du vent (horizontale)
+              ↓
+    Pression sur surfaces inclinées
+              ↓
+    Forces dans toutes les directions
+              ↓
+    Mouvement complexe sur la sphère
+              ↓
+    Patterns de vol (boucles, huit, etc.)
+   ```
+
+#### Paramètres Physiques Clés
+- **Masse** : 0.28 kg
+- **Surface totale** : 0.68 m² (4 triangles)
+- **Inertie** : 0.015 kg·m²
+- **Densité de l'air** : 1.225 kg/m³
+- **Garde-fous** : Force max 1000N, Vitesse max 30m/s, Vitesse angulaire max 5rad/s
 
 ### Commandes Clavier Simulation
-- **Flèche gauche** : Tire le côté gauche de la barre (+30°)
-- **Flèche droite** : Tire le côté droit de la barre (-30°)
+- **Flèche gauche** : Rotation barre +45° (tire côté gauche)
+- **Flèche droite** : Rotation barre -45° (tire côté droit)
 - **Bouton Debug** : Active l'affichage des vecteurs de force
 
 ### Paramètres de Vent
-- **Vitesse** : 0-50 km/h (affichage en km/h, pas en pourcentage)
-- **Direction** : 0-360 degrés
-- **Turbulence** : 0-100% d'intensité
-- **Longueur des lignes** : 10-50 mètres
+- **Vitesse** : 0-50 km/h (18 km/h par défaut)
+- **Direction** : 0-360 degrés (0° = vent de face poussant vers -Z)
+- **Turbulence** : 0-100% d'intensité (3% par défaut)
+- **Longueur des lignes** : 10-50 mètres (15m par défaut)
 
 ### Points d'Ancrage du Kite
-Les points `CTRL_GAUCHE` et `CTRL_DROIT` dans Kite2.ts définissent où les lignes se connectent au cerf-volant.
+Les points `CTRL_GAUCHE` et `CTRL_DROIT` dans Kite2.ts (Z=0.4) définissent où les lignes se connectent et créent le moment de redressement naturel.
 
 ### Architecture SimulationV3
 La version V3 introduit une architecture modulaire avec séparation des responsabilités :
