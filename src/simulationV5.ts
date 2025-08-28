@@ -45,18 +45,18 @@ const CONFIG = {
         gravity: 9.81,              // m/s²
         airDensity: 1.225,          // kg/m³ au niveau de la mer
         deltaTimeMax: 0.016,        // 60 FPS max
-        angularDamping: 0.7,        // Amortissement angulaire (augmenté pour plus de stabilité)
-        linearDamping: 0.95,        // Amortissement linéaire (augmenté pour mouvement plus fluide)
-        controlBarLerpSpeed: 0.15   // Vitesse d'interpolation de la barre de contrôle
+        angularDamping: 1.0,        // AUCUN amortissement angulaire - physique pure
+        linearDamping: 1.0,         // AUCUN amortissement linéaire - physique pure
+        controlBarLerpSpeed: 1    // Interpolation plus rapide pour réactivité
     },
     kite: {
-        mass: 0.5,                  // kg - Masse réaliste pour un cerf-volant delta
+        mass: 0.25,                 // kg - Cerf-volant léger et réactif
         area: 1.2,                  // m² - Surface de voile
-        inertia: 0.05,              // kg·m² - Inertie augmentée pour plus de stabilité
-        liftCoefficient: 0.8,       // Coefficient de portance (réduit pour physique émergente)
-        dragCoefficient: 0.6,       // Coefficient de traînée (augmenté car c'est la force principale)
+        inertia: 0.02,              // kg·m² - Inertie réduite pour plus de réactivité
+        liftCoefficient: 1.4,       // Coefficient de portance élevé - très réactif au vent
+        dragCoefficient: 1.2,       // Coefficient de traînée élevé - bonne prise au vent
         aspectRatio: 3.5,           // Ratio d'aspect delta
-        stabilizationTorqueFactor: 0.5, // Couple de stabilisation plus fort
+        stabilizationTorqueFactor: 0.0, // AUCUNE stabilisation artificielle - physique pure
         angleMultiplierBase: 0.7,   // Non utilisé dans la nouvelle physique
         angleMultiplierFactor: 0.6, // Non utilisé dans la nouvelle physique
         desiredAngleBase: Math.PI / 6, // Non utilisé dans la nouvelle physique
@@ -64,14 +64,14 @@ const CONFIG = {
     },
     lines: {
         defaultLength: 15,          // m - Lignes standard
-        tensionFactor: 150,         // Non utilisé (pas de force élastique)
-        controlFactor: 80,          // Facteur de contrôle augmenté pour meilleure réponse
+        tensionFactor: 200,         // Force de rappel des lignes souples
+        controlFactor: 300,         // Facteur de contrôle augmenté pour rotation proportionnelle
         maxSag: 0.01,               // Affaissement max des lignes pour le visuel
-        minTension: 2.0,            // Non utilisé (pas de tension)
+        minTension: 0.5,            // Tension minimale pour maintenir la forme
         pivotStiffness: 0.8,        // Rigidité des pivots souples
-        pivotDamping: 0.9,          // Amortissement des pivots souples
+        pivotDamping: 1.0,          // AUCUN amortissement des pivots - physique pure
         catenarySagFactor: 4,       // Facteur de forme pour la courbe de la caténaire
-        maxDistanceFactor: 1.0      // Contrainte exacte de distance (pas de marge)
+        maxDistanceFactor: 1.0      // Pas de marge - tension pure quand étirée
     },
     wind: {
         defaultSpeed: 12,           // km/h - Vent modéré pour démarrer
@@ -137,11 +137,11 @@ class WindSimulator {
      */
     getApparentWind(kiteVelocity: THREE.Vector3, deltaTime: number): THREE.Vector3 {
         this.time += deltaTime;
-        
+
         // Vent de base en m/s
         const windSpeedMs = this.params.speed / 3.6;
         const windRad = (this.params.direction * Math.PI) / 180;
-        
+
         // Convention: 0° = vent soufflant vers le Sud (-Z) pour pousser le cerf-volant
         // 90° = vent soufflant vers l'Ouest (+X)
         // Le cerf-volant est en Z négatif, le vent doit souffler vers -Z pour le pousser
@@ -155,7 +155,7 @@ class WindSimulator {
         if (this.params.turbulence > 0) {
             const turbIntensity = this.params.turbulence / 100 * CONFIG.wind.turbulenceScale;
             const freq = CONFIG.wind.turbulenceFreqBase; // Fréquence des rafales
-            
+
             windVector.x += Math.sin(this.time * freq) * windSpeedMs * turbIntensity * CONFIG.wind.turbulenceIntensityXZ;
             windVector.y += Math.sin(this.time * freq * CONFIG.wind.turbulenceFreqY) * windSpeedMs * turbIntensity * CONFIG.wind.turbulenceIntensityY;
             windVector.z += Math.cos(this.time * freq * CONFIG.wind.turbulenceFreqZ) * windSpeedMs * turbIntensity * CONFIG.wind.turbulenceIntensityXZ;
@@ -172,7 +172,7 @@ class WindSimulator {
     getParams(): WindParams {
         return { ...this.params };
     }
-    
+
     /**
      * Obtient le vecteur de vent à une position donnée (pour l'instant, vent uniforme)
      */
@@ -180,7 +180,7 @@ class WindSimulator {
         // Vent de base en m/s
         const windSpeedMs = this.params.speed / 3.6;
         const windRad = (this.params.direction * Math.PI) / 180;
-        
+
         // Convention: 0° = vent soufflant vers le Sud (-Z) pour pousser le cerf-volant
         // 90° = vent soufflant vers l'Ouest (+X)
         // Le cerf-volant est en Z négatif, le vent doit souffler vers -Z pour le pousser
@@ -189,17 +189,17 @@ class WindSimulator {
             0,
             -Math.cos(windRad) * windSpeedMs
         );
-        
+
         // Ajouter la turbulence cohérente
         if (this.params.turbulence > 0) {
             const turbIntensity = this.params.turbulence / 100 * CONFIG.wind.turbulenceScale;
             const freq = 0.5;
-            
+
             windVector.x += Math.sin(this.time * freq) * windSpeedMs * turbIntensity;
             windVector.y += Math.sin(this.time * freq * 1.3) * windSpeedMs * turbIntensity * 0.3;
             windVector.z += Math.cos(this.time * freq * 0.7) * windSpeedMs * turbIntensity;
         }
-        
+
         return windVector;
     }
 }
@@ -222,80 +222,85 @@ class Aerodynamics {
     ): { lift: THREE.Vector3; drag: THREE.Vector3; torque: THREE.Vector3 } {
         const windSpeed = apparentWind.length();
         if (windSpeed < 0.1) {
-            return { 
-                lift: new THREE.Vector3(), 
+            return {
+                lift: new THREE.Vector3(),
                 drag: new THREE.Vector3(),
                 torque: new THREE.Vector3()
             };
         }
-        
-        // === PRESSION DU VENT SUR LA SURFACE ===
-        // Le vent applique une pression sur la toile du cerf-volant
-        const dynamicPressure = 0.5 * CONFIG.physics.airDensity * windSpeed * windSpeed;
-        
-        // === ORIENTATION DU CERF-VOLANT ===
-        // La surface du cerf-volant fait face au vent
-        // Les whiskers créent un angle dièdre naturel
-        const kiteForward = new THREE.Vector3(0, 0, 1); // Direction avant du kite
-        kiteForward.applyQuaternion(kiteOrientation);
-        
-        // Direction du vent apparent
-        const windDir = apparentWind.clone().normalize();
-        
-        // === ANGLE D'INCIDENCE DÉFINI PAR LES BRIDES ===
-        // Les brides déterminent comment le cerf-volant se présente au vent
-        // Cet angle est "fixé" mécaniquement par la longueur des brides
+
+        // === POSITION DANS LA FENÊTRE DE VENT ===
+        // Le cerf-volant se positionne différemment selon sa position relative au pilote
+        const toPilot = pilotPosition.clone().sub(kitePosition).normalize();
+        // Angle entre le vent et la direction kite->pilote (0° = face au vent, 90° = bord)
+        const angleToWind = Math.acos(Math.abs(windDir.dot(toPilot)));
+        const windFenster = Math.cos(angleToWind); // 1 = centre (face au vent), 0 = bord (perpendiculaire)
+
+        // === ANGLE DES BRIDES ET POSITIONNEMENT ===
+        // Les brides définissent l'angle d'attaque et influencent la position d'équilibre
         const bridleAngle = (Math.PI / 6) * bridleFactor; // 30° × facteur de bride
-        
-        // Angle entre le vent et la surface
-        const cosAngle = Math.max(0, -kiteForward.dot(windDir));
-        
-        // === FORCE DE PRESSION TOTALE ===
-        // La pression s'applique perpendiculairement à la surface
-        // Plus le vent frappe perpendiculairement, plus la force est grande
-        const pressureMagnitude = dynamicPressure * CONFIG.kite.area * cosAngle;
-        
-        // La force de pression pousse dans la direction opposée au vent
-        // (le vent pousse le cerf-volant vers l'arrière)
-        const pressureForce = windDir.clone().multiplyScalar(pressureMagnitude);
-        
+
+        // === ORIENTATION DYNAMIQUE DU CERF-VOLANT ===
+        // Le kite s'oriente naturellement selon le vent et les brides
+        const kiteNormal = new THREE.Vector3(0, 0, -1); // Normale de la surface
+        kiteNormal.applyQuaternion(kiteOrientation);
+
+        const windDir = apparentWind.clone().normalize();
+
+        // === EFFICACITÉ AÉRODYNAMIQUE ===
+        // Angle d'incidence effectif influencé par la position dans la fenêtre
+        const incidenceAngle = Math.abs(windDir.dot(kiteNormal));
+        const windEfficiency = Math.max(0.5, incidenceAngle * (0.8 + 0.4 * windFenster)); // Force minimum garantie
+
+        // === PRESSION DYNAMIQUE MODULÉE ===
+        const dynamicPressure = 0.5 * CONFIG.physics.airDensity * windSpeed * windSpeed;
+        const effectivePressure = dynamicPressure * CONFIG.kite.area * windEfficiency;
+
         // === DÉCOMPOSITION NATURELLE DES FORCES ===
-        
-        // 1. DRAG - Composante qui pousse vers l'arrière (dans la direction du vent)
-        // C'est la force principale qui tend les lignes
-        const dragCoeff = CONFIG.kite.dragCoefficient * (1 + 0.5 * Math.sin(bridleAngle));
-        const dragForce = windDir.clone().multiplyScalar(pressureMagnitude * dragCoeff);
-        
-        // 2. LIFT - Composante perpendiculaire créée par l'angle dièdre
-        // Les whiskers créent un angle qui génère de la portance
-        // Cette portance fait "glisser" le cerf-volant sur la sphère
-        
-        // Direction de la portance : perpendiculaire au vent ET aux lignes
-        const lineDir = kitePosition.clone().sub(pilotPosition).normalize();
-        const liftDir = new THREE.Vector3().crossVectors(windDir, lineDir).normalize();
-        
-        // Magnitude de la portance dépend de l'angle d'incidence
-        const liftCoeff = CONFIG.kite.liftCoefficient * Math.sin(bridleAngle * 2); // Max à 45°
-        const liftMagnitude = pressureMagnitude * liftCoeff;
+
+        // 1. DRAG - Force principale qui maintient le cerf-volant dans le vent
+        // Plus forte au centre de la fenêtre, plus faible sur les bords
+        const dragCoeff = CONFIG.kite.dragCoefficient;
+        const dragMagnitude = effectivePressure * dragCoeff * (1.0 + 0.2 * Math.sin(bridleAngle)); // Force de base plus élevée
+        const dragForce = windDir.clone().multiplyScalar(dragMagnitude);
+
+        // 2. LIFT - Portance qui émerge de l'angle dièdre et de la forme delta
+        // Varie selon la position dans la fenêtre et l'angle des brides
+
+        // La portance est maximale avec un angle d'attaque optimal
+        const optimalAngle = bridleAngle; // L'angle des brides définit l'optimal
+        const angleFactor = Math.sin(incidenceAngle / optimalAngle * Math.PI / 2); // Bell curve
+
+        // Direction de portance : mélange de vertical et perpendiculaire au vent
+        const verticalComponent = 0.7; // Priorité au vertical pour contrer la gravité
+        const lateralComponent = 0.3 * windFenster; // Moins de dérive sur les bords
+
+        const liftDir = new THREE.Vector3(
+            windDir.z * lateralComponent, // Composante latérale
+            verticalComponent, // Composante verticale dominante
+            -windDir.x * lateralComponent // Composante latérale opposée
+        ).normalize();
+
+        const liftCoeff = CONFIG.kite.liftCoefficient;
+        const liftMagnitude = effectivePressure * liftCoeff * angleFactor * (0.8 + 0.4 * windFenster); // Force de base plus élevée
         const liftForce = liftDir.multiplyScalar(liftMagnitude);
-        
-        // === COUPLE DE STABILISATION ===
-        // Les brides créent naturellement un couple stabilisant
-        // Si le cerf-volant s'incline trop, les brides le ramènent
-        
-        // Axe de rotation : perpendiculaire au plan vent-kite
-        const torqueAxis = new THREE.Vector3().crossVectors(kiteForward, windDir).normalize();
-        
-        // Le couple tend à aligner le cerf-volant avec l'angle des brides
-        const currentAngle = Math.acos(Math.abs(kiteForward.dot(windDir)));
-        const angleDiff = currentAngle - bridleAngle;
-        
+
+        // === COUPLE DE STABILISATION ÉMERGENT ===
+        // Le couple émerge naturellement des déséquilibres de pression
+
+        // Couple d'auto-alignement dans le vent
+        const torqueAxis = new THREE.Vector3().crossVectors(kiteNormal, windDir).normalize();
+        const alignmentTorque = Math.sin(incidenceAngle * 2) * effectivePressure * 0.1;
+
+        // Couple de stabilisation des brides (plus fort en bord de fenêtre)
+        const bridgeStabilization = (1 - windFenster) * effectivePressure * 0.2;
+
         const stabilizationTorque = torqueAxis.multiplyScalar(
-            angleDiff * pressureMagnitude * CONFIG.kite.stabilizationTorqueFactor
+            (alignmentTorque + bridgeStabilization) * CONFIG.kite.stabilizationTorqueFactor
         );
-        
-        return { 
-            lift: liftForce, 
+
+        return {
+            lift: liftForce,
             drag: dragForce,
             torque: stabilizationTorque
         };
@@ -318,8 +323,8 @@ class LineSystem {
     }
 
     /**
-     * Calcule les forces de tension des lignes
-     * Les lignes n'appliquent PAS de force élastique, seulement un couple différentiel
+     * Calcule les forces de tension des lignes souples
+     * PHYSIQUE ÉMERGENTE : Les lignes se tendent naturellement quand étirées
      */
     calculateTensions(
         kite: Kite2,
@@ -329,7 +334,7 @@ class LineSystem {
     ): { leftForce: THREE.Vector3; rightForce: THREE.Vector3; torque: THREE.Vector3 } {
         const ctrlLeft = kite.getPoint('CTRL_GAUCHE');
         const ctrlRight = kite.getPoint('CTRL_DROIT');
-        
+
         if (!ctrlLeft || !ctrlRight) {
             return {
                 leftForce: new THREE.Vector3(),
@@ -344,22 +349,50 @@ class LineSystem {
         kite.localToWorld(ctrlLeftWorld);
         kite.localToWorld(ctrlRightWorld);
 
-        // Les lignes n'appliquent PAS de forces de traction
-        // Elles servent uniquement de contrainte de distance maximale
-        const leftForce = new THREE.Vector3();
-        const rightForce = new THREE.Vector3();
-        
-        // Calculer le couple dû à la rotation de la barre de contrôle
-        // Quand on tire sur une ligne, cela crée un couple de rotation
+        // === TENSION NATURELLE DES LIGNES ===
+        // Les lignes se tendent seulement quand elles dépassent leur longueur naturelle
+
+        // Distance réelle des lignes
+        const leftDistance = ctrlLeftWorld.distanceTo(handleLeft);
+        const rightDistance = ctrlRightWorld.distanceTo(handleRight);
+
+        let leftForce = new THREE.Vector3();
+        let rightForce = new THREE.Vector3();
+
+        // Ligne gauche : force de tension si étirée
+        if (leftDistance > this.lineLength) {
+            const leftDir = handleLeft.clone().sub(ctrlLeftWorld).normalize();
+            const stretch = leftDistance - this.lineLength;
+            const tensionMagnitude = stretch * CONFIG.lines.tensionFactor;
+            leftForce = leftDir.multiplyScalar(tensionMagnitude);
+        }
+
+        // Ligne droite : force de tension si étirée
+        if (rightDistance > this.lineLength) {
+            const rightDir = handleRight.clone().sub(ctrlRightWorld).normalize();
+            const stretch = rightDistance - this.lineLength;
+            const tensionMagnitude = stretch * CONFIG.lines.tensionFactor;
+            rightForce = rightDir.multiplyScalar(tensionMagnitude);
+        }
+
+        // === COUPLE DE CONTRÔLE ===
+        // Différence de tension entre les lignes crée un couple
         let totalTorque = new THREE.Vector3();
-        
+
+        // Couple dû à la rotation de la barre
         if (Math.abs(controlRotation) > 0.01) {
-            // La rotation de la barre crée une différence de "longueur effective"
-            // qui induit un couple de rotation sur le cerf-volant
             const torqueStrength = controlRotation * CONFIG.lines.controlFactor;
             const kiteUp = new THREE.Vector3(0, 1, 0);
             kiteUp.applyQuaternion(kite.quaternion);
-            totalTorque = kiteUp.multiplyScalar(torqueStrength);
+            totalTorque.add(kiteUp.multiplyScalar(torqueStrength));
+        }
+
+        // Couple dû à la différence de tension
+        const tensionDiff = leftForce.length() - rightForce.length();
+        if (Math.abs(tensionDiff) > 0.1) {
+            const kiteUp = new THREE.Vector3(0, 1, 0);
+            kiteUp.applyQuaternion(kite.quaternion);
+            totalTorque.add(kiteUp.multiplyScalar(tensionDiff * 0.1));
         }
 
         return {
@@ -375,7 +408,7 @@ class LineSystem {
     updatePivots(kite: Kite2, deltaTime: number): void {
         const ctrlLeft = kite.getPoint('CTRL_GAUCHE');
         const ctrlRight = kite.getPoint('CTRL_DROIT');
-        
+
         if (!ctrlLeft || !ctrlRight) return;
 
         const targetLeft = ctrlLeft.clone();
@@ -386,7 +419,7 @@ class LineSystem {
         // Physique des pivots avec ressort-amortisseur
         const stiffness = CONFIG.lines.pivotStiffness;
         const damping = CONFIG.lines.pivotDamping;
-        
+
         // Pivot gauche
         const forceLeft = targetLeft.clone().sub(this.leftPivot).multiplyScalar(stiffness);
         this.leftVelocity.add(forceLeft);
@@ -409,22 +442,22 @@ class LineSystem {
         segments: number = 5
     ): THREE.Vector3[] {
         const directDistance = start.distanceTo(end);
-        
+
         if (directDistance >= this.lineLength) {
             return [start, end];
         }
-        
+
         const points: THREE.Vector3[] = [];
         const slack = this.lineLength - directDistance;
         const sag = slack * CONFIG.lines.maxSag;
-        
+
         for (let i = 0; i <= segments; i++) {
             const t = i / segments;
             const point = new THREE.Vector3().lerpVectors(start, end, t);
             point.y -= CONFIG.lines.catenarySagFactor * sag * t * (1 - t);
             points.push(point);
         }
-        
+
         return points;
     }
 
@@ -473,31 +506,16 @@ class KiteController {
     ): void {
         // Accélération = F / m
         const acceleration = forces.divideScalar(CONFIG.kite.mass);
-        
+
         // Intégration de la vélocité (Euler explicite)
         this.state.velocity.add(acceleration.multiplyScalar(deltaTime));
         this.state.velocity.multiplyScalar(CONFIG.physics.linearDamping);
 
-        // Nouvelle position
+        // Nouvelle position - mouvement libre dans l'espace 3D
         const newPosition = this.kite.position.clone()
             .add(this.state.velocity.clone().multiplyScalar(deltaTime));
 
-        // Contrainte sphérique STRICTE - les lignes sont inextensibles
-        const distFromPilot = newPosition.distanceTo(pilotPosition);
-        const maxDist = this.kite.userData.lineLength; // Pas de facteur, longueur exacte
-        if (distFromPilot > maxDist) {
-            // Projeter sur la sphère de rayon = longueur des lignes
-            const dir = newPosition.clone().sub(pilotPosition).normalize();
-            newPosition.copy(pilotPosition.clone().add(dir.multiplyScalar(maxDist)));
-            
-            // Annuler la composante radiale de la vitesse (éviter le rebond)
-            const radialVelocity = this.state.velocity.dot(dir);
-            if (radialVelocity > 0) {
-                this.state.velocity.sub(dir.multiplyScalar(radialVelocity));
-            }
-        }
-
-        // Hauteur minimale
+        // Hauteur minimale au sol seulement
         newPosition.y = Math.max(CONFIG.kite.minHeight, newPosition.y);
 
         // Appliquer la position
@@ -518,7 +536,7 @@ class KiteController {
     ): void {
         // Accélération angulaire = Couple / Inertie
         const angularAcceleration = torque.clone().divideScalar(CONFIG.kite.inertia);
-        
+
         // Mise à jour de la vitesse angulaire
         this.state.angularVelocity.add(angularAcceleration.multiplyScalar(deltaTime));
         this.state.angularVelocity.multiplyScalar(CONFIG.physics.angularDamping);
@@ -534,7 +552,7 @@ class KiteController {
             this.kite.quaternion.normalize(); // Garder le quaternion normalisé
         }
 
-        
+
     }
 
     getState(): KiteState {
@@ -565,7 +583,7 @@ class InputHandler {
     private setupKeyboardControls(): void {
         window.addEventListener('keydown', (event) => {
             this.keysPressed.add(event.key);
-            
+
             if (event.key === 'ArrowLeft') {
                 this.targetBarRotation = Math.PI / 4; // +45° pour plus d'effet
                 event.preventDefault();
@@ -577,7 +595,7 @@ class InputHandler {
 
         window.addEventListener('keyup', (event) => {
             this.keysPressed.delete(event.key);
-            
+
             if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                 if (!this.keysPressed.has('ArrowLeft') && !this.keysPressed.has('ArrowRight')) {
                     this.targetBarRotation = 0;
@@ -626,7 +644,7 @@ class RenderManager {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        
+
         container.appendChild(this.renderer.domElement);
 
         // Contrôles
@@ -800,27 +818,27 @@ class PhysicsEngine {
             // Calculer l'axe de rotation dans le plan kite->barre
             const centerKite = kiteLeftWorld.clone().add(kiteRightWorld).multiplyScalar(0.5);
             const toKiteVector = centerKite.clone().sub(this.controlBar.position).normalize();
-            
+
             // L'axe de rotation est perpendiculaire au plan formé par:
             // - La direction horizontale de la barre (X)
             // - La direction vers le cerf-volant
             const barDirection = new THREE.Vector3(1, 0, 0);
             const rotationAxis = new THREE.Vector3().crossVectors(barDirection, toKiteVector).normalize();
-            
+
             // Si les vecteurs sont parallèles (cas rare), utiliser un axe par défaut
             if (rotationAxis.length() < 0.01) {
                 rotationAxis.set(0, 1, 0); // Axe vertical par défaut
             }
 
             const rotationQuaternion = new THREE.Quaternion().setFromAxisAngle(
-                rotationAxis, 
+                rotationAxis,
                 this.controlBarRotation
             );
 
             // Positions locales des poignées (barre de 1.5m de large)
             const handleLeftLocal = new THREE.Vector3(-0.75, 0, 0);
             const handleRightLocal = new THREE.Vector3(0.75, 0, 0);
-            
+
             // Appliquer la rotation
             handleLeftLocal.applyQuaternion(rotationQuaternion);
             handleRightLocal.applyQuaternion(rotationQuaternion);
@@ -854,23 +872,23 @@ class PhysicsEngine {
             // Calculer l'axe de rotation dans le plan kite->barre
             const centerKite = kiteLeftWorld.clone().add(kiteRightWorld).multiplyScalar(0.5);
             const toKiteVector = centerKite.clone().sub(this.controlBar.position).normalize();
-            
+
             // L'axe de rotation est perpendiculaire au plan formé par:
             // - La direction horizontale de la barre (X)
             // - La direction vers le cerf-volant
             const barDirection = new THREE.Vector3(1, 0, 0);
             const rotationAxis = new THREE.Vector3().crossVectors(barDirection, toKiteVector).normalize();
-            
+
             // Si les vecteurs sont parallèles (cas rare), utiliser un axe par défaut
             if (rotationAxis.length() < 0.01) {
                 rotationAxis.set(0, 1, 0); // Axe vertical par défaut
             }
 
             const rotationQuaternion = new THREE.Quaternion().setFromAxisAngle(
-                rotationAxis, 
+                rotationAxis,
                 this.controlBarRotation
             );
-            
+
             this.controlBar.quaternion.copy(rotationQuaternion);
         }
     }
@@ -887,11 +905,11 @@ class PhysicsEngine {
     getKiteController(): KiteController {
         return this.kiteController;
     }
-    
+
     getWindSimulator(): WindSimulator {
         return this.windSimulator;
     }
-    
+
     getLineSystem(): LineSystem {
         return this.lineSystem;
     }
@@ -1017,7 +1035,7 @@ export class SimulationAppV5 {
 
         const ctrlLeft = this.kite.getPoint('CTRL_GAUCHE');
         const ctrlRight = this.kite.getPoint('CTRL_DROIT');
-        
+
         if (!ctrlLeft || !ctrlRight) return;
 
         // Convertir les points de contrôle en coordonnées monde
@@ -1025,36 +1043,36 @@ export class SimulationAppV5 {
         const kiteRightWorld = ctrlRight.clone();
         this.kite.localToWorld(kiteLeftWorld);
         this.kite.localToWorld(kiteRightWorld);
-        
+
         // Récupérer la rotation actuelle de la barre depuis le PhysicsEngine
         const controlBarRotation = this.physicsEngine.controlBarRotation || 0;
-        
+
         // Calculer l'axe de rotation dans le plan kite->barre
         const centerKite = kiteLeftWorld.clone().add(kiteRightWorld).multiplyScalar(0.5);
         const toKiteVector = centerKite.clone().sub(this.controlBar.position).normalize();
-        
+
         // L'axe de rotation est perpendiculaire au plan formé par:
         // - La direction horizontale de la barre (X)
         // - La direction vers le cerf-volant
         const barDirection = new THREE.Vector3(1, 0, 0); // Direction de la barre
         const rotationAxis = new THREE.Vector3().crossVectors(barDirection, toKiteVector).normalize();
-        
+
         // Si les vecteurs sont parallèles (cas rare), utiliser un axe par défaut
         if (rotationAxis.length() < 0.01) {
             rotationAxis.set(0, 1, 0); // Axe vertical par défaut
         }
-        
+
         // Créer le quaternion de rotation
         const rotationQuaternion = new THREE.Quaternion().setFromAxisAngle(rotationAxis, controlBarRotation);
-        
+
         // Positions locales des poignées (barre de 1.5m de large)
         const handleLeftLocal = new THREE.Vector3(-0.75, 0, 0);
         const handleRightLocal = new THREE.Vector3(0.75, 0, 0);
-        
+
         // Appliquer la rotation
         handleLeftLocal.applyQuaternion(rotationQuaternion);
         handleRightLocal.applyQuaternion(rotationQuaternion);
-        
+
         // Convertir en positions monde
         const handleLeft = handleLeftLocal.clone().add(this.controlBar.position);
         const handleRight = handleRightLocal.clone().add(this.controlBar.position);
@@ -1100,7 +1118,7 @@ export class SimulationAppV5 {
             // Initialiser avec la valeur de CONFIG
             speedSlider.value = CONFIG.wind.defaultSpeed.toString();
             speedValue.textContent = `${CONFIG.wind.defaultSpeed} km/h`;
-            
+
             speedSlider.oninput = () => {
                 const speed = parseFloat(speedSlider.value);
                 this.physicsEngine.setWindParams({ speed });
@@ -1115,7 +1133,7 @@ export class SimulationAppV5 {
             // Initialiser avec la valeur de CONFIG
             dirSlider.value = CONFIG.wind.defaultDirection.toString();
             dirValue.textContent = `${CONFIG.wind.defaultDirection}°`;
-            
+
             dirSlider.oninput = () => {
                 const direction = parseFloat(dirSlider.value);
                 this.physicsEngine.setWindParams({ direction });
@@ -1130,7 +1148,7 @@ export class SimulationAppV5 {
             // Initialiser avec la valeur de CONFIG
             turbSlider.value = CONFIG.wind.defaultTurbulence.toString();
             turbValue.textContent = `${CONFIG.wind.defaultTurbulence}%`;
-            
+
             turbSlider.oninput = () => {
                 const turbulence = parseFloat(turbSlider.value);
                 this.physicsEngine.setWindParams({ turbulence });
@@ -1145,17 +1163,17 @@ export class SimulationAppV5 {
             // Initialiser avec la valeur de CONFIG
             lengthSlider.value = CONFIG.lines.defaultLength.toString();
             lengthValue.textContent = `${CONFIG.lines.defaultLength}m`;
-            
+
             lengthSlider.oninput = () => {
                 const length = parseFloat(lengthSlider.value);
                 this.physicsEngine.setLineLength(length);
                 lengthValue.textContent = `${length}m`;
-                
+
                 // Si le cerf-volant est trop loin, le ramener à la nouvelle distance max
                 const kitePosition = this.kite.position;
                 const pilotPosition = this.controlBar.position;
                 const distance = kitePosition.distanceTo(pilotPosition);
-                
+
                 if (distance > length) {
                     // Projeter le cerf-volant sur la nouvelle sphère
                     const direction = kitePosition.clone().sub(pilotPosition).normalize();
@@ -1164,10 +1182,10 @@ export class SimulationAppV5 {
                 }
             };
         }
-        
+
         // Longueur des brides (facteur de bride)
         const bridleSlider = document.getElementById('bridle-length') as HTMLInputElement;
-        const bridleValue  = document.getElementById('bridle-length-value');
+        const bridleValue = document.getElementById('bridle-length-value');
         if (bridleSlider && bridleValue) {
             bridleSlider.value = '100';
             bridleValue.textContent = '100%';
@@ -1191,13 +1209,13 @@ export class SimulationAppV5 {
         this.kite.position.set(0, 5, -initialDistance);
         this.kite.rotation.set(0, 0, 0);
         this.controlBar.quaternion.identity();
-        
+
         // Réinitialiser aussi la vitesse
         const kiteController = this.physicsEngine.getKiteController();
         const kiteState = kiteController.getState();
         kiteState.velocity.set(0, 0, 0);
         kiteState.angularVelocity.set(0, 0, 0);
-        
+
         console.log(`🔄 Simulation réinitialisée avec longueur de ligne: ${currentLineLength}m`);
     }
 
@@ -1213,20 +1231,20 @@ export class SimulationAppV5 {
     private toggleDebugMode(): void {
         this.debugMode = !this.debugMode;
         const debugBtn = document.getElementById('debug-physics');
-        
+
         if (debugBtn) {
             debugBtn.textContent = this.debugMode ? '🔍 Debug ON' : '🔍 Debug';
             debugBtn.classList.toggle('active', this.debugMode);
         }
-        
+
         // Activer/désactiver l'affichage du panneau de debug
         document.body.classList.toggle('debug-mode', this.debugMode);
-        
+
         // Nettoyer les flèches de debug si on désactive
         if (!this.debugMode) {
             this.clearDebugArrows();
         }
-        
+
         console.log(`🔍 Mode debug: ${this.debugMode ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
     }
 
@@ -1240,14 +1258,14 @@ export class SimulationAppV5 {
 
     private updateDebugArrows(): void {
         if (!this.debugMode) return;
-        
+
         // Nettoyer les anciennes flèches
         this.clearDebugArrows();
-        
+
         // Obtenir l'état du cerf-volant
         const kiteState = this.physicsEngine.getKiteController().getState();
         const kitePosition = this.kite.position.clone();
-        
+
         // Flèche de vitesse (verte)
         if (kiteState.velocity.length() > 0.1) {
             const velocityArrow = new THREE.ArrowHelper(
@@ -1261,16 +1279,16 @@ export class SimulationAppV5 {
             this.renderManager.addObject(velocityArrow);
             this.debugArrows.push(velocityArrow);
         }
-        
+
         // Obtenir les forces aérodynamiques depuis le KiteController
         const windSim = this.physicsEngine.getWindSimulator();
         const wind = windSim.getWindAt(kitePosition);
         const relativeWind = wind.clone().sub(kiteState.velocity);
-        
+
         // Flèche de portance (bleue)
         let liftMagnitude = 0;
         let dragMagnitude = 0;
-        
+
         if (relativeWind.length() > 0.1) {
             liftMagnitude = relativeWind.lengthSq() * CONFIG.kite.liftCoefficient * 0.5;
             if (liftMagnitude > 0.1) {
@@ -1287,7 +1305,7 @@ export class SimulationAppV5 {
                 this.debugArrows.push(liftArrow);
             }
         }
-        
+
         // Flèche de traînée (rouge)
         if (relativeWind.length() > 0.1) {
             dragMagnitude = relativeWind.lengthSq() * CONFIG.kite.dragCoefficient * 0.5;
@@ -1305,17 +1323,17 @@ export class SimulationAppV5 {
                 this.debugArrows.push(dragArrow);
             }
         }
-        
+
         // Afficher les infos de debug dans le panneau
         const forceDisplay = document.getElementById('force-display');
         const tensionDisplay = document.getElementById('tension-display');
         const altitudeDisplay = document.getElementById('altitude-display');
-        
+
         if (forceDisplay) {
             const totalForce = Math.sqrt(liftMagnitude + dragMagnitude);
             forceDisplay.textContent = totalForce.toFixed(1);
         }
-        
+
         if (tensionDisplay) {
             // Calculer la tension approximative des lignes
             const lineLength = this.physicsEngine.getLineSystem().lineLength || CONFIG.lines.defaultLength;
@@ -1323,7 +1341,7 @@ export class SimulationAppV5 {
             const tension = Math.max(0, (distance - lineLength) * CONFIG.lines.tensionFactor);
             tensionDisplay.textContent = tension.toFixed(1);
         }
-        
+
         if (altitudeDisplay) {
             altitudeDisplay.textContent = kitePosition.y.toFixed(1);
         }
@@ -1335,13 +1353,13 @@ export class SimulationAppV5 {
         if (this.isPlaying) {
             const deltaTime = this.clock.getDelta();
             const targetRotation = this.inputHandler.getTargetBarRotation();
-            
+
             // Mettre à jour la physique
             this.physicsEngine.update(deltaTime, targetRotation);
-            
+
             // Mettre à jour les lignes visuelles
             this.updateControlLines();
-            
+
             // Mettre à jour les flèches de debug si activé
             this.updateDebugArrows();
         }

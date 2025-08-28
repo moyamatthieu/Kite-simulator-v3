@@ -1,5 +1,14 @@
 /**
- * ThreeRenderer.ts - Renderer Three.js isolé
+ * ThreeRenderer.ts - Renderer Th    constructor(config: RendererConfig = {}) {
+        this.config = {
+            canvasContainer: document.body,
+            backgroundColor: '#1a1a2e',
+            fog: true,
+            shadows: true,
+            antialias: true,
+            cameraPosition: [2, 1.5, 2], // Position équilibrée pour petits et grands objets
+            ...config
+        };lé
  * Encapsule toute la logique de rendu Three.js
  * 🎮 Interface propre pour faciliter la migration vers Godot
  */
@@ -42,7 +51,7 @@ export class ThreeRenderer {
             fog: true,
             shadows: true,
             antialias: true,
-            cameraPosition: [3, 2, 3],
+            cameraPosition: [0.1, 0.1, 0.1], // Position adaptée aux objets millimétriques
             ...config
         };
         
@@ -64,7 +73,7 @@ export class ThreeRenderer {
         this.scene.background = new THREE.Color(this.config.backgroundColor);
         
         if (this.config.fog) {
-            this.scene.fog = new THREE.Fog(this.config.backgroundColor, 10, 50);
+            this.scene.fog = new THREE.Fog(this.config.backgroundColor, 5, 20); // Brouillard équilibré pour tous les objets
         }
     }
     
@@ -72,8 +81,8 @@ export class ThreeRenderer {
         this.camera = new THREE.PerspectiveCamera(
             75,
             window.innerWidth / window.innerHeight,
-            0.1,
-            1000
+            0.01, // Near plane adapté aux petits objets (1mm)
+            10    // Far plane adapté aux petits objets (10 unités = 10m)
         );
         
         const [x, y, z] = this.config.cameraPosition;
@@ -231,20 +240,33 @@ export class ThreeRenderer {
         const box = new THREE.Box3().setFromObject(object);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
-        
-        // Distance appropriée
+
+        // Distance appropriée adaptée à la taille de l'objet
         const maxSize = Math.max(size.x, size.y, size.z);
-        const distance = maxSize * 2;
-        
+
+        let distance;
+        if (maxSize < 0.1) {
+            // Petits objets (millimétriques) - distance réduite
+            distance = Math.max(maxSize * 4, 0.08);
+        } else if (maxSize < 1) {
+            // Objets moyens (centimétriques)
+            distance = Math.max(maxSize * 3, 0.3);
+        } else {
+            // Grands objets (métriques et plus)
+            distance = Math.max(maxSize * 2, 1);
+        }
+
         // Positionner la caméra
         this.camera.position.copy(center);
-        this.camera.position.y += distance * 0.5;
+        this.camera.position.y += distance * 0.4;
         this.camera.position.z += distance;
-        
+
         // Regarder le centre
         this.camera.lookAt(center);
         this.controls.target.copy(center);
         this.controls.update();
+
+        console.log(`📹 Focus on object - Size: ${maxSize.toFixed(3)}, Distance: ${distance.toFixed(3)}`);
     }
     
     /**

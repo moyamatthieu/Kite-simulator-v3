@@ -1,149 +1,140 @@
-/**
- * Cube.ts - Cube optimisé 1x1x1 pour impression 3D
- * Utilise une géométrie indexée avec 8 vertices partagés
- */
-
-import { StructuredObject } from '@core/StructuredObject';
-import { ICreatable } from '@types';
 import * as THREE from 'three';
+import { StructuredObject } from '../../core/StructuredObject';
+import { Primitive } from '../../core/Primitive';
+import { ICreatable } from '../../types';
 
 export class Cube extends StructuredObject implements ICreatable {
-  private size: number;
-  
-  constructor(size: number = 10) { // 10mm = 1cm en millimètres
-    super("Cube", false);
-    this.size = size;
-    this.init();
-  }
-  
-  protected definePoints(): void {
-    const s = this.size / 2;
-    
-    // 8 sommets du cube
-    this.setPoint('VERTEX_000', [-s, -s, -s]);
-    this.setPoint('VERTEX_001', [-s, -s,  s]);
-    this.setPoint('VERTEX_010', [-s,  s, -s]);
-    this.setPoint('VERTEX_011', [-s,  s,  s]);
-    this.setPoint('VERTEX_100', [ s, -s, -s]);
-    this.setPoint('VERTEX_101', [ s, -s,  s]);
-    this.setPoint('VERTEX_110', [ s,  s, -s]);
-    this.setPoint('VERTEX_111', [ s,  s,  s]);
-    
-    // Centre du cube
-    this.setPoint('CENTER', [0, 0, 0]);
-  }
-  
-  protected buildStructure(): void {
-    // Créer une géométrie de cube optimisée avec 8 vertices
-    const geometry = this.createOptimizedCubeGeometry(this.size);
-    
-    // Créer le matériau
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x808080,
-      metalness: 0.3,
-      roughness: 0.7
-    });
-    
-    // Créer le mesh
-    const cube = new THREE.Mesh(geometry, material);
-    
-    // Ajouter au centre
-    this.add(cube);
-  }
-  
-  /**
-   * Crée une géométrie de cube optimisée avec seulement 8 vertices
-   * et des faces indexées pour éviter les duplications
-   */
-  private createOptimizedCubeGeometry(size: number): THREE.BufferGeometry {
-    const geometry = new THREE.BufferGeometry();
-    const s = size / 2;
-    
-    // Définir les 8 vertices uniques du cube
-    const vertices = new Float32Array([
-      // Vertex 0: arrière-bas-gauche
-      -s, -s, -s,
-      // Vertex 1: arrière-bas-droit
-       s, -s, -s,
-      // Vertex 2: arrière-haut-droit
-       s,  s, -s,
-      // Vertex 3: arrière-haut-gauche
-      -s,  s, -s,
-      // Vertex 4: avant-bas-gauche
-      -s, -s,  s,
-      // Vertex 5: avant-bas-droit
-       s, -s,  s,
-      // Vertex 6: avant-haut-droit
-       s,  s,  s,
-      // Vertex 7: avant-haut-gauche
-      -s,  s,  s
-    ]);
-    
-    // Définir les indices pour les 12 triangles (6 faces × 2 triangles)
-    const indices = new Uint16Array([
-      // Face arrière (z = -s)
-      0, 1, 2,
-      0, 2, 3,
-      // Face avant (z = s)
-      4, 6, 5,
-      4, 7, 6,
-      // Face gauche (x = -s)
-      0, 3, 7,
-      0, 7, 4,
-      // Face droite (x = s)
-      1, 5, 6,
-      1, 6, 2,
-      // Face bas (y = -s)
-      0, 4, 5,
-      0, 5, 1,
-      // Face haut (y = s)
-      3, 2, 6,
-      3, 6, 7
-    ]);
-    
-    // Calculer les normales pour chaque vertex
-    // Pour un cube, chaque vertex appartient à 3 faces
-    const normals = new Float32Array([
-      // Les normales moyennées pour chaque vertex
-      -0.577, -0.577, -0.577,  // Vertex 0
-       0.577, -0.577, -0.577,  // Vertex 1
-       0.577,  0.577, -0.577,  // Vertex 2
-      -0.577,  0.577, -0.577,  // Vertex 3
-      -0.577, -0.577,  0.577,  // Vertex 4
-       0.577, -0.577,  0.577,  // Vertex 5
-       0.577,  0.577,  0.577,  // Vertex 6
-      -0.577,  0.577,  0.577   // Vertex 7
-    ]);
-    
-    // Appliquer les attributs à la géométrie
-    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-    
-    // Calculer les bounding box et sphere
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-    
-    return geometry;
-  }
-  
-  protected buildSurfaces(): void {
-    // Pas de surfaces supplémentaires - le cube est déjà solide
-  }
-  
-  create(): this {
-    return this;
-  }
-  
-  getName(): string {
-    return "Cube";
-  }
-  
-  getDescription(): string {
-    return `Cube optimisé ${this.size}x${this.size}x${this.size}mm (1cm³) - 8 vertices, 12 faces`;
-  }
-  
-  getPrimitiveCount(): number {
-    return 1;
-  }
+    private size: number;
+    private printable: boolean;
+
+    constructor(size: number = 2, printable: boolean = false) {
+        super("Cube", false);
+        this.size = size;
+        this.printable = printable;
+        console.log(`🎲 Creating cube - Size: ${size} units, Printable: ${printable}`);
+        this.init(); // Initialize after configuration
+        console.log(`🎲 Cube created and initialized`);
+    }
+
+    protected definePoints(): void {
+        const halfSize = this.size / 2;
+
+        console.log(`📐 Defining cube points - Size: ${this.size} units, Half size: ${halfSize}`);
+
+        // Define 8 vertices of the cube with names
+        this.setPoint('bottom-back-left', [-halfSize, -halfSize, -halfSize]);
+        this.setPoint('bottom-back-right', [halfSize, -halfSize, -halfSize]);
+        this.setPoint('top-back-right', [halfSize, halfSize, -halfSize]);
+        this.setPoint('top-back-left', [-halfSize, halfSize, -halfSize]);
+        this.setPoint('bottom-front-left', [-halfSize, -halfSize, halfSize]);
+        this.setPoint('bottom-front-right', [halfSize, -halfSize, halfSize]);
+        this.setPoint('top-front-right', [halfSize, halfSize, halfSize]);
+        this.setPoint('top-front-left', [-halfSize, halfSize, halfSize]);
+
+        console.log(`✅ Cube points defined - Total points: ${this.points.size}`);
+        console.log(`📍 Sample point 'bottom-front-left':`, this.getPoint('bottom-front-left'));
+    }
+
+    protected buildStructure(): void {
+        // For printable mode, we don't need frames
+        if (!this.printable) {
+            // Add some basic structure lines for visualization
+            // Create lines using THREE.Line
+            const material = new THREE.LineBasicMaterial({ color: 0x000000 });
+            const points = [
+                this.getPoint('bottom-back-left')!, this.getPoint('bottom-back-right')!,
+                this.getPoint('bottom-back-right')!, this.getPoint('top-back-right')!,
+                this.getPoint('top-back-right')!, this.getPoint('top-back-left')!,
+                this.getPoint('top-back-left')!, this.getPoint('bottom-back-left')!
+            ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, material);
+            this.add(line);
+        }
+    }
+
+    protected buildSurfaces(): void {
+        console.log(`🎲 Building cube surfaces - Printable: ${this.printable}, Size: ${this.size} units`);
+
+        if (this.printable) {
+            this.buildPrintableSurfaces();
+        } else {
+            this.buildVisualSurfaces();
+        }
+
+        console.log(`✅ Cube surfaces built - Total children: ${this.children.length}`);
+    }
+
+    private buildPrintableSurfaces(): void {
+        console.log(`🔧 Building printable surfaces for ${this.size} units cube`);
+
+        // For 3D printing, create explicit triangles for each face to ensure manifold geometry
+
+        // Front face (z = halfSize)
+        const front1 = this.addSurfaceBetweenPoints(['bottom-front-left', 'bottom-front-right', 'top-front-right'], '#ff0000');
+        const front2 = this.addSurfaceBetweenPoints(['bottom-front-left', 'top-front-right', 'top-front-left'], '#ff0000');
+        console.log(`🎨 Front face: ${front1 ? 'OK' : 'FAILED'}, ${front2 ? 'OK' : 'FAILED'}`);
+
+        // Back face (z = -halfSize)
+        const back1 = this.addSurfaceBetweenPoints(['bottom-back-left', 'bottom-back-right', 'top-back-right'], '#00ff00');
+        const back2 = this.addSurfaceBetweenPoints(['bottom-back-left', 'top-back-right', 'top-back-left'], '#00ff00');
+        console.log(`🎨 Back face: ${back1 ? 'OK' : 'FAILED'}, ${back2 ? 'OK' : 'FAILED'}`);
+
+        // Left face (x = -halfSize)
+        const left1 = this.addSurfaceBetweenPoints(['bottom-back-left', 'top-back-left', 'top-front-left'], '#0000ff');
+        const left2 = this.addSurfaceBetweenPoints(['bottom-back-left', 'top-front-left', 'bottom-front-left'], '#0000ff');
+        console.log(`🎨 Left face: ${left1 ? 'OK' : 'FAILED'}, ${left2 ? 'OK' : 'FAILED'}`);
+
+        // Right face (x = halfSize)
+        const right1 = this.addSurfaceBetweenPoints(['bottom-back-right', 'top-back-right', 'top-front-right'], '#ffff00');
+        const right2 = this.addSurfaceBetweenPoints(['bottom-back-right', 'top-front-right', 'bottom-front-right'], '#ffff00');
+        console.log(`🎨 Right face: ${right1 ? 'OK' : 'FAILED'}, ${right2 ? 'OK' : 'FAILED'}`);
+
+        // Top face (y = halfSize)
+        const top1 = this.addSurfaceBetweenPoints(['top-back-left', 'top-back-right', 'top-front-right'], '#ff00ff');
+        const top2 = this.addSurfaceBetweenPoints(['top-back-left', 'top-front-right', 'top-front-left'], '#ff00ff');
+        console.log(`🎨 Top face: ${top1 ? 'OK' : 'FAILED'}, ${top2 ? 'OK' : 'FAILED'}`);
+
+        // Bottom face (y = -halfSize)
+        const bottom1 = this.addSurfaceBetweenPoints(['bottom-back-left', 'bottom-back-right', 'bottom-front-right'], '#00ffff');
+        const bottom2 = this.addSurfaceBetweenPoints(['bottom-back-left', 'bottom-front-right', 'bottom-front-left'], '#00ffff');
+        console.log(`🎨 Bottom face: ${bottom1 ? 'OK' : 'FAILED'}, ${bottom2 ? 'OK' : 'FAILED'}`);
+
+        console.log(`✅ Printable cube: Created 12 triangles for 6 faces - Total meshes: ${this.children.filter(child => child instanceof THREE.Mesh).length}`);
+    }
+
+    private buildVisualSurfaces(): void {
+        console.log(`🔧 Building visual surfaces for ${this.size} units cube`);
+        // For visualization, use a simple box primitive
+        const box = Primitive.box(this.size, this.size, this.size, '#8B4513');
+        this.add(box);
+        console.log(`✅ Visual cube: Created box primitive - Added to scene: ${box ? 'OK' : 'FAILED'}`);
+    }
+
+    public getSize(): number {
+        return this.size;
+    }
+
+    public isPrintable(): boolean {
+        return this.printable;
+    }
+
+    // Implémentation de l'interface ICreatable
+    create(): this {
+        return this;
+    }
+
+    getName(): string {
+        return this.printable ? "Cube 20mm (Impression 3D)" : "Cube";
+    }
+
+    getDescription(): string {
+        return this.printable 
+            ? "Cube optimisé pour l'impression 3D avec géométrie manifold (2 unités = 20mm)" 
+            : "Cube simple avec structure anatomique (2 unités = 20mm)";
+    }
+
+    getPrimitiveCount(): number {
+        return this.printable ? 12 : 6; // 12 triangles ou 6 quads
+    }
 }
