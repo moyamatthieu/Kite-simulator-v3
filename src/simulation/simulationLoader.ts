@@ -465,17 +465,8 @@ if (typeof window !== 'undefined') {
                 console.log(`🎮 Simulation active: ${info.name}`);
             });
 
-            // Attendre que les simulations soient découvertes
-            setTimeout(async () => {
-                // Charger V5 par défaut
-                const loaded = await loader.loadSimulation('V5');
-                if (loaded) {
-                    console.log('✅ SimulationV5 chargée avec succès');
-                } else {
-                    console.warn('⚠️ Impossible de charger V5, tentative avec V3...');
-                    await loader.loadSimulation('V3');
-                }
-            }, 100);
+            // La simulation est déjà chargée dans discoverSimulations()
+            // Pas besoin de la charger à nouveau
         }
     });
 }

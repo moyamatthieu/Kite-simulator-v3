@@ -1124,7 +1124,7 @@ class PhysicsEngine {
 // SIMULATION APP - Application principale
 // ==============================================================================
 
-export class SimulationAppV5 {
+export class SimulationAppV6 {
     private renderManager: RenderManager;
     private physicsEngine!: PhysicsEngine;
     private inputHandler: InputHandler;
@@ -1140,7 +1140,7 @@ export class SimulationAppV5 {
     private startupTime: number = 0; // Temps depuis le démarrage pour la phase de démarrage progressive
 
     constructor() {
-        console.log('🚀 Démarrage de la Simulation V5 - Version améliorée basée sur V3');
+        console.log('🚀 Démarrage de la Simulation V6 - Version améliorée basée sur V3');
 
         try {
             // Initialiser les modules

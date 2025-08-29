@@ -129,8 +129,8 @@ export class Cube extends StructuredObject implements ICreatable {
     }
 
     getDescription(): string {
-        return this.printable 
-            ? "Cube optimisé pour l'impression 3D avec géométrie manifold (2 unités = 20mm)" 
+        return this.printable
+            ? "Cube optimisé pour l'impression 3D avec géométrie manifold (2 unités = 20mm)"
             : "Cube simple avec structure anatomique (2 unités = 20mm)";
     }
 
