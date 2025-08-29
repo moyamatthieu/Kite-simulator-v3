@@ -25,6 +25,39 @@
  * - ControlBarManager : Gestion centralisée de la barre
  * - RenderManager : Gestion du rendu 3D
  * - InputHandler : Gestion des entrées utilisateur
+ * 
+ * 
+ *   J'ai transformé les commentaires techniques en explications simples avec :
+
+  🎯 Explications claires
+
+  - Ce que fait le code : "Simule un vrai cerf-volant dans le vent"
+  - Comment ça marche : "Vous tournez la barre → tire une ligne → kite tourne"
+  - Pourquoi c'est fait : "Pour simuler la vraie physique, pas tricher"
+
+  🌍 Analogies du monde réel
+
+  - Vent apparent = "Main par la fenêtre de la voiture"
+  - Angle d'incidence = "Main à plat vs de profil face au vent"
+  - Couple = "Pousser une porte près ou loin des gonds"
+  - Turbulences = "Les tourbillons qu'on sent dehors"
+  - Lignes = "Comme des cordes, peuvent tirer mais pas pousser"
+  - Rotation barre = "Comme un guidon de vélo"
+
+  📊 Valeurs expliquées
+
+  - MAX_VELOCITY = "30 m/s = 108 km/h"
+  - MAX_FORCE = "Comme soulever 100kg"
+  - Amortissement = "Le kite perd 2% de sa vitesse"
+
+  🔄 Flux simplifié
+
+  Chaque fonction importante explique :
+  1. CE QU'ELLE FAIT - en une phrase simple
+  2. COMMENT - les étapes en langage courant
+  3. POURQUOI - l'effet sur le cerf-volant
+
+ 
  */
 
 import * as THREE from 'three';
@@ -253,7 +286,7 @@ class ControlBarManager {
     getRotation(): number {
         return this.rotation;
     }
-    
+
     getPosition(): THREE.Vector3 {
         return this.position.clone();
     }
@@ -334,7 +367,7 @@ class WindSimulator {
         // Le vent apparent = vent réel - vitesse du kite
         // Si le kite va vite vers l'avant, il "crée" du vent de face
         const apparent = windVector.clone().sub(kiteVelocity);
-        
+
         // On limite pour éviter des valeurs irréalistes
         if (apparent.length() > CONFIG.wind.maxApparentSpeed) {
             apparent.setLength(CONFIG.wind.maxApparentSpeed);
@@ -458,13 +491,13 @@ class AerodynamicsCalculator {
             // C'est important car si un côté a plus de force,
             // le kite va tourner (comme un bateau avec une seule rame)
             const isLeft = centre.x < 0;  // Négatif = gauche, Positif = droite
-            
+
             if (isLeft) {
                 leftForce.add(force);  // On additionne à la force totale gauche
             } else {
                 rightForce.add(force); // On additionne à la force totale droite
             }
-            
+
             totalForce.add(force);
 
             // Le couple, c'est ce qui fait tourner le kite
@@ -594,7 +627,7 @@ class LineSystem {
         // Imaginez que vous tenez une barre de 60cm de large
         const barHalfWidth = CONFIG.controlBar.width * 0.5;  // 30cm de chaque côté
         const barRight = new THREE.Vector3(1, 0, 0);
-        
+
         // Quand vous tournez la barre (comme un guidon de vélo) :
         // - Tourner à gauche = votre main gauche recule, la droite avance
         // - Tourner à droite = votre main droite recule, la gauche avance
@@ -602,42 +635,42 @@ class LineSystem {
             .applyAxisAngle(new THREE.Vector3(0, 1, 0), controlRotation);
         const rightHandleOffset = barRight.clone().multiplyScalar(barHalfWidth)
             .applyAxisAngle(new THREE.Vector3(0, 1, 0), controlRotation);
-        
+
         const leftHandlePos = pilotPosition.clone().add(leftHandleOffset);
         const rightHandlePos = pilotPosition.clone().add(rightHandleOffset);
-        
+
         // Vecteurs ligne : du kite vers le pilote
         const leftDistance = leftWorld.distanceTo(leftHandlePos);
         const rightDistance = rightWorld.distanceTo(rightHandlePos);
-        
+
         const leftLineDir = leftHandlePos.clone().sub(leftWorld).normalize();
         const rightLineDir = rightHandlePos.clone().sub(rightWorld).normalize();
-        
+
         // PRINCIPE CLÉ : Les lignes sont des CORDES, pas des ressorts!
         // - Ligne molle (distance < longueur) = AUCUNE force
         // - Ligne tendue (distance > longueur) = Force proportionnelle
         let leftForce = new THREE.Vector3();
         let rightForce = new THREE.Vector3();
-        
+
         // Ligne gauche : F = k × extension (Hooke pour corde rigide)
         if (leftDistance > this.lineLength) {
             const extension = leftDistance - this.lineLength;  // Étirement en mètres
             const tension = Math.min(CONFIG.lines.stiffness * extension, CONFIG.lines.maxTension);
             leftForce = leftLineDir.multiplyScalar(tension);  // Force vers le pilote
         }
-        
+
         // Ligne droite : même physique
         if (rightDistance > this.lineLength) {
             const extension = rightDistance - this.lineLength;
             const tension = Math.min(CONFIG.lines.stiffness * extension, CONFIG.lines.maxTension);
             rightForce = rightLineDir.multiplyScalar(tension);
         }
-        
+
         // COUPLE ÉMERGENT : Résulte de l'asymétrie des tensions
         // Si ligne gauche tire plus fort → rotation horaire
         // Si ligne droite tire plus fort → rotation anti-horaire
         let totalTorque = new THREE.Vector3();
-        
+
         // Couple ligne gauche (si tendue)
         if (leftForce.length() > 0) {
             const leftTorque = new THREE.Vector3().crossVectors(
@@ -646,7 +679,7 @@ class LineSystem {
             );
             totalTorque.add(leftTorque);
         }
-        
+
         // Couple ligne droite (si tendue)
         if (rightForce.length() > 0) {
             const rightTorque = new THREE.Vector3().crossVectors(
@@ -1209,7 +1242,7 @@ class PhysicsEngine {
         // - Couple émerge de l'asymétrie gauche/droite des tensions
         const pilotPosition = this.controlBarManager.getPosition();
         const { leftForce, rightForce, torque: lineTorque } = this.lineSystem.calculateLineTensions(
-            kite, 
+            kite,
             newRotation,
             pilotPosition
         );
@@ -1221,7 +1254,7 @@ class PhysicsEngine {
             .add(gravity)       // Poids vers le bas
             .add(leftForce)     // Tension ligne gauche vers pilote
             .add(rightForce);   // Tension ligne droite vers pilote
-        
+
         // Couple total = somme des moments (rotation du corps rigide)
         // Le couple émerge NATURELLEMENT sans facteur artificiel!
         const totalTorque = aeroTorque.clone().add(lineTorque);
@@ -1607,13 +1640,13 @@ export class SimulationAppV8 {
         const relativeWind = wind.clone().sub(kiteState.velocity);
 
         let cachedForces: { lift: THREE.Vector3; drag: THREE.Vector3 } | undefined;
-        
+
         if (relativeWind.length() > 0.1) {
             const { lift, drag } = AerodynamicsCalculator.calculateForces(
                 relativeWind,
                 this.kite.quaternion
             );
-            
+
             cachedForces = { lift, drag };
 
             if (lift.length() > 0.01) {
@@ -1717,7 +1750,7 @@ export class SimulationAppV8 {
 
             const forces = AerodynamicsCalculator.calculateForces(apparent, this.kite.quaternion);
             const isTaut = distance >= currentLineLength * PhysicsConstants.LINE_TENSION_FACTOR;
-            
+
             // Afficher l'asym\u00e9trie des forces gauche/droite
             const leftMag = forces.leftForce?.length() || 0;
             const rightMag = forces.rightForce?.length() || 0;
