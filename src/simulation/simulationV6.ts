@@ -1,5 +1,5 @@
 /**
- * SimulationV5.ts - Version basée sur V3 avec améliorations futures
+ * SimulationV6.ts - Version basée sur V3 avec améliorations futures
  * Lorsqu’un cerf‑volant de voltige est soumis au vent, la voile est repoussée vers l’arrière. Les lignes le retiennent au niveau des poignées et le contraignent à rester à une distance fixe du pilote. Le kite s’oriente alors spontanément dans le vent et adopte une position d’équilibre qui dépend à la fois de la rotation de la barre et de la longueur des brides. Cet équilibre le maintient « fixé » dans le flux : le vent appuie sur la toile avec un certain angle (créé en partie par les whiskers), ce qui génère une portance et une traînée. Ainsi, le cerf‑volant avance et recule dans une sphère imaginaire dont le rayon correspond à la longueur des lignes.
 
 🌬️ Principe physique :
@@ -485,7 +485,7 @@ class LineSystem {
             // Le couple agit autour de l'axe vertical du cerf-volant
             const kiteUp = new THREE.Vector3(0, 1, 0);
             kiteUp.applyQuaternion(kite.quaternion);
-            
+
             // Plus la barre est tournée, plus le couple est fort
             const torqueStrength = controlRotation * CONFIG.lines.controlFactor;
             totalTorque = kiteUp.multiplyScalar(torqueStrength);
@@ -571,7 +571,7 @@ class KiteController {
             console.error(`⚠️ Forces invalides: ${forces ? forces.toArray() : 'undefined'}`);
             forces = new THREE.Vector3();
         }
-        
+
         if (!torque || isNaN(torque.length())) {
             console.error(`⚠️ Couple invalide: ${torque ? torque.toArray() : 'undefined'}`);
             torque = new THREE.Vector3();
@@ -579,7 +579,7 @@ class KiteController {
 
         // Accélération = F / m
         const acceleration = forces.divideScalar(CONFIG.kite.mass);
-        
+
         // === GARDE-FOU : Limiter l'accélération ===
         const maxAcceleration = 50; // m/s²
         if (acceleration.length() > maxAcceleration) {
@@ -590,7 +590,7 @@ class KiteController {
         // Intégration de la vélocité (Euler explicite)
         this.state.velocity.add(acceleration.multiplyScalar(deltaTime));
         this.state.velocity.multiplyScalar(CONFIG.physics.linearDamping);
-        
+
         // === GARDE-FOU : Limiter la vitesse ===
         const maxVelocity = 30; // m/s
         if (this.state.velocity.length() > maxVelocity) {
@@ -601,7 +601,7 @@ class KiteController {
         // Nouvelle position - intégration libre dans l'espace 3D (avant contraintes)
         const newPosition = this.kite.position.clone()
             .add(this.state.velocity.clone().multiplyScalar(deltaTime));
-        
+
         // === CONTRAINTES DES LIGNES (deux lignes souples inextensibles) ===
         this.enforceLineConstraints(newPosition, handles, deltaTime);
 
@@ -632,7 +632,7 @@ class KiteController {
                 this.state.velocity.z *= 0.85;
             }
         }
-        
+
         // === GARDE-FOU : Vérifier la position finale ===
         if (isNaN(newPosition.x) || isNaN(newPosition.y) || isNaN(newPosition.z)) {
             console.error(`⚠️ Position NaN détectée! Reset à la position précédente`);
@@ -665,7 +665,7 @@ class KiteController {
 
         // Accélération angulaire = Couple / Inertie
         const angularAcceleration = effectiveTorque.divideScalar(CONFIG.kite.inertia);
-        
+
         // === GARDE-FOU : Limiter l'accélération angulaire ===
         const maxAngularAcceleration = 20; // rad/s²
         if (angularAcceleration.length() > maxAngularAcceleration) {
@@ -679,7 +679,7 @@ class KiteController {
         // Mise à jour de la vitesse angulaire
         this.state.angularVelocity.add(angularAcceleration.multiplyScalar(deltaTime));
         this.state.angularVelocity.multiplyScalar(CONFIG.physics.angularDamping);
-        
+
         // === GARDE-FOU : Limiter la vitesse angulaire ===
         const maxAngularVelocity = 5; // rad/s (environ 1 tour toutes les 1.25 secondes max)
         if (this.state.angularVelocity.length() > maxAngularVelocity) {
@@ -1639,7 +1639,7 @@ export class SimulationAppV6 {
 
     private animate = (): void => {
         requestAnimationFrame(this.animate);
-        
+
         // Log périodique toutes les 60 frames (environ 1 seconde)
         this.frameCount++;
         if (this.frameCount % 60 === 0) {

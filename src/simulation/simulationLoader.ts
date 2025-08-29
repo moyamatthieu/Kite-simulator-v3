@@ -51,7 +51,7 @@ export class SimulationLoader {
         for (const path in simulationModules) {
             // Extraire le nom du fichier et la version
             const filename = path.split('/').pop() || '';
-            const match = filename.match(/simulation(V?\d+)?\.ts/);
+            const match = filename.match(/simulation(V?\d+(?:_\d+)?)?\.ts/);
 
             if (match) {
                 let version = match[1] || '';
@@ -68,7 +68,10 @@ export class SimulationLoader {
                     'V2': 'Version améliorée - Meilleure stabilité',
                     'V3': 'Architecture modulaire - Physique avancée',
                     'V4': 'Physique émergente pure - Modèle réaliste',
-                    'V5': 'Version expérimentale'
+                    'V5': 'Version expérimentale',
+                    'V6': 'Version avec améliorations futures',
+                    'V7': 'Version refactorisée - Code propre et maintenable',
+                    'V7_1': 'Version optimisée - Corrections critiques'
                 };
 
                 if (descriptions[version]) {
@@ -188,6 +191,9 @@ export class SimulationLoader {
             'SimulationAppV2',
             'SimulationAppV3',
             'SimulationAppV5',
+            'SimulationAppV6',
+            'SimulationAppV7',
+            'SimulationAppV7_1',
             'KiteSimulationV4',
             'KiteSimulation',
             'App',

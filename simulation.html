@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,12 +12,12 @@
             overflow: hidden;
             background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
         }
-        
+
         #app {
             width: 100vw;
             height: 100vh;
         }
-        
+
         /* Sélecteur de mode en haut à gauche */
         .mode-selector {
             position: absolute;
@@ -30,7 +31,7 @@
             align-items: center;
             z-index: 1000;
         }
-        
+
         .mode-selector label {
             color: #aaa;
             font-size: 14px;
@@ -38,7 +39,7 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        
+
         .mode-btn {
             padding: 8px 16px;
             background: #444;
@@ -51,17 +52,17 @@
             min-width: 80px;
             text-align: center;
         }
-        
+
         .mode-btn:hover {
             background: #555;
         }
-        
+
         .mode-btn.active {
             background: #667eea;
             border-color: #764ba2;
             box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
         }
-        
+
         /* Panneau d'informations */
         #sim-info {
             position: absolute;
@@ -73,12 +74,12 @@
             border-radius: 8px;
             font-size: 14px;
         }
-        
+
         #sim-info h3 {
             margin: 0 0 10px 0;
             color: #667eea;
         }
-        
+
         /* Contrôles de simulation */
         .sim-controls {
             position: absolute;
@@ -87,7 +88,7 @@
             display: flex;
             gap: 10px;
         }
-        
+
         .sim-controls button {
             padding: 10px 20px;
             background: #667eea;
@@ -98,17 +99,17 @@
             font-size: 14px;
             transition: all 0.3s;
         }
-        
+
         button:hover {
             background: #764ba2;
             transform: translateY(-2px);
         }
-        
+
         button.active {
             background: #764ba2;
             box-shadow: 0 0 10px rgba(118, 75, 162, 0.5);
         }
-        
+
         /* Panneau de contrôle du vent */
         .wind-controls {
             position: absolute;
@@ -120,31 +121,31 @@
             color: white;
             width: 200px;
         }
-        
+
         .wind-controls h4 {
             margin: 0 0 10px 0;
             color: #667eea;
         }
-        
+
         .wind-control {
             margin-bottom: 10px;
         }
-        
+
         .wind-control label {
             display: block;
             margin-bottom: 5px;
             font-size: 12px;
         }
-        
+
         .wind-control input[type="range"] {
             width: 100%;
         }
-        
+
         .wind-control span {
             font-size: 12px;
             color: #aaa;
         }
-        
+
         /* Indicateurs de physique */
         .physics-debug {
             position: absolute;
@@ -158,29 +159,30 @@
             font-size: 12px;
             display: none;
         }
-        
+
         body.debug-mode .physics-debug {
             display: block;
         }
     </style>
 </head>
+
 <body>
     <div id="app"></div>
-    
+
     <!-- Sélecteur de mode -->
     <div class="mode-selector">
         <label>MODE:</label>
         <button id="mode-cao" class="mode-btn">CAO</button>
         <button id="mode-simulation" class="mode-btn active">Simulation</button>
     </div>
-    
+
     <!-- Contrôles de simulation -->
     <div class="sim-controls">
         <button id="reset-sim">🔄 Reset</button>
         <button id="play-pause">▶️ Lancer</button>
         <button id="debug-physics">🔍 Debug</button>
     </div>
-    
+
     <!-- Contrôles du vent -->
     <div class="wind-controls">
         <h4>🌬️ Paramètres du vent</h4>
@@ -210,19 +212,19 @@
             <span id="bridle-length-value">--%</span>
         </div>
     </div>
-    
+
     <!-- Debug physique -->
     <div class="physics-debug">
-        <span>Forces: <span id="force-display">0</span>N</span> | 
-        <span>Tension: <span id="tension-display">0</span>N</span> | 
+        <span>Forces: <span id="force-display">0</span>N</span> |
+        <span>Tension: <span id="tension-display">0</span>N</span> |
         <span>Altitude: <span id="altitude-display">0</span>m</span>
         <div style="margin-top: 5px; font-size: 11px;">
-            <span style="color: #00ff00;">● Vitesse</span> | 
-            <span style="color: #0088ff;">● Portance</span> | 
+            <span style="color: #00ff00;">● Vitesse</span> |
+            <span style="color: #0088ff;">● Portance</span> |
             <span style="color: #ff0000;">● Traînée</span>
         </div>
     </div>
-    
+
     <!-- Informations -->
     <div id="sim-info">
         <h3>🎮 Mode Simulation</h3>
@@ -235,7 +237,8 @@
             ← → Flèches pour contrôler la barre
         </div>
     </div>
-    
+
     <script type="module" src="/src/simulation/simulationLoader.ts"></script>
 </body>
+
 </html>
