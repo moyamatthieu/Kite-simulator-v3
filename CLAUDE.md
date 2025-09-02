@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **NE PAS lancer npm run dev** : L'utilisateur lance le serveur de développement dans un terminal externe. Claude ne doit jamais exécuter cette commande. On dev en Hotreload
 
+**convention d'imports** : On utilise un systeme d'alias pour les import
+
 ## Architecture v3.0 - KISS + Godot Compatible
 
 ### Système Principal (Fonctionnel)

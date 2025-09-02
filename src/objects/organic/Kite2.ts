@@ -13,15 +13,16 @@ import { ICreatable } from '@types';
 import { Primitive } from '@core/Primitive';
 import { FrameFactory } from '@factories/FrameFactory';
 import { SurfaceFactory } from '@factories/SurfaceFactory';
+import * as THREE from 'three';
 
 export class Kite2 extends StructuredObject implements ICreatable {
   private frameFactory: FrameFactory;
   private surfaceFactory: SurfaceFactory;
   // Map centrale des points - Single Source of Truth
   private pointsMap: Map<string, [number, number, number]> = new Map();
-  private bridleFrame: THREE.Group | null = null;
+  private bridleLines: THREE.Group | null = null;
   private bridleLengthFactor: number = 1.0; // Facteur de longueur virtuelle des brides principales
-  
+
   // Paramètres du cerf-volant
   private params = {
     width: 1.65,      // Envergure
@@ -32,7 +33,7 @@ export class Kite2 extends StructuredObject implements ICreatable {
     sailColor: '#ff3333',
     sailOpacity: 0.9
   };
-  
+
   constructor(customParams = {}) {
     super("Cerf-volant Delta v2", false);
     this.params = { ...this.params, ...customParams };
@@ -47,42 +48,42 @@ export class Kite2 extends StructuredObject implements ICreatable {
    */
   protected definePoints(): void {
     const { width, height, depth } = this.params;
-    
+
     // Calculs préliminaires pour les positions relatives
-    const centreY = height/4;
+    const centreY = height / 4;
     const ratio = (height - centreY) / height;
-    const interGaucheX = ratio * (-width/2);
-    const interDroitX = ratio * (width/2);
-    const fixRatio = 2/3;
-    
+    const interGaucheX = ratio * (-width / 2);
+    const interDroitX = ratio * (width / 2);
+    const fixRatio = 2 / 3;
+
     // Définir LA Map centrale de points - Single Source of Truth
     this.pointsMap = new Map<string, [number, number, number]>([
       // Points structurels principaux
       ['SPINE_BAS', [0, 0, 0]],
-      ['CENTRE', [0, height/4, 0]],
+      ['CENTRE', [0, height / 4, 0]],
       ['NEZ', [0, height, 0]],
-      
+
       // Points des bords d'attaque
-      ['BORD_GAUCHE', [-width/2, 0, 0]],
-      ['BORD_DROIT', [width/2, 0, 0]],
-      
+      ['BORD_GAUCHE', [-width / 2, 0, 0]],
+      ['BORD_DROIT', [width / 2, 0, 0]],
+
       // Points d'intersection pour le spreader
       ['INTER_GAUCHE', [interGaucheX, centreY, 0]],
       ['INTER_DROIT', [interDroitX, centreY, 0]],
-      
+
       // Points de fixation whiskers
       ['FIX_GAUCHE', [fixRatio * interGaucheX, centreY, 0]],
       ['FIX_DROIT', [fixRatio * interDroitX, centreY, 0]],
-      
+
       // Points des whiskers
-      ['WHISKER_GAUCHE', [-width/4, 0.1, -depth]],
-      ['WHISKER_DROIT', [width/4, 0.1, -depth]],
-      
+      ['WHISKER_GAUCHE', [-width / 4, 0.1, -depth]],
+      ['WHISKER_DROIT', [width / 4, 0.1, -depth]],
+
       // Points de contrôle (bridage) - Position FIXE
-      ['CTRL_GAUCHE', [-width*0.15, height*0.3, 0.4]],
-      ['CTRL_DROIT', [width*0.15, height*0.3, 0.4]]
+      ['CTRL_GAUCHE', [-width * 0.15, height * 0.4, 0.4]],  // Plus bas et plus proche
+      ['CTRL_DROIT', [width * 0.15, height * 0.4, 0.4]]
     ]);
-    
+
     // Enregistrer dans StructuredObject pour compatibilité avec le système existant
     this.pointsMap.forEach((position, name) => {
       this.setPoint(name, position);
@@ -94,7 +95,7 @@ export class Kite2 extends StructuredObject implements ICreatable {
    */
   protected buildStructure(): void {
     const { frameDiameter, frameColor } = this.params;
-    
+
     // Créer le frame principal avec la Map de points partagée
     const mainFrameParams = {
       diameter: frameDiameter,
@@ -110,10 +111,10 @@ export class Kite2 extends StructuredObject implements ICreatable {
         ['INTER_GAUCHE', 'INTER_DROIT'] as [string, string]
       ]
     };
-    
+
     const mainFrame = this.frameFactory.createObject(mainFrameParams);
     this.add(mainFrame);
-    
+
     // Créer les whiskers avec un frame séparé (plus fin)
     const whiskerFrameParams = {
       diameter: frameDiameter / 2,
@@ -124,34 +125,102 @@ export class Kite2 extends StructuredObject implements ICreatable {
         ['WHISKER_DROIT', 'FIX_DROIT'] as [string, string]
       ]
     };
-    
+
     const whiskerFrame = this.frameFactory.createObject(whiskerFrameParams);
     this.add(whiskerFrame);
-    
-    // Créer le système de bridage
-    const bridleFrameParams = {
-      diameter: 0.003,
-      material: '#000000',
-      points: Array.from(this.pointsMap.entries()),  // Même Map de référence
-      connections: [
-        // Bridage gauche
-        ['CTRL_GAUCHE', 'NEZ'] as [string, string],
-        ['CTRL_GAUCHE', 'INTER_GAUCHE'] as [string, string],
-        ['CTRL_GAUCHE', 'CENTRE'] as [string, string],
-        // Bridage droit
-        ['CTRL_DROIT', 'NEZ'] as [string, string],
-        ['CTRL_DROIT', 'INTER_DROIT'] as [string, string],
-        ['CTRL_DROIT', 'CENTRE'] as [string, string]
-      ]
-    };
-    
-    // Supprimer l'ancien bridleFrame si il existe
-    if (this.bridleFrame) {
-      this.remove(this.bridleFrame);
+
+    // Créer le système de bridage avec des lignes souples
+    this.createBridleLines();
+  }
+
+  /**
+   * Crée les lignes de bridage souples (visuelles uniquement)
+   * Ces lignes représentent des cordes sans élasticité ni effet ressort
+   */
+  private createBridleLines(): void {
+    // Supprimer les anciennes lignes si elles existent
+    if (this.bridleLines) {
+      this.remove(this.bridleLines);
     }
-    
-    this.bridleFrame = this.frameFactory.createObject(bridleFrameParams);
-    this.add(this.bridleFrame);
+
+    this.bridleLines = new THREE.Group();
+    this.bridleLines.name = 'BridleLines';
+
+    // Configuration des brides
+    const bridleConnections = [
+      // Bridage gauche (3 lignes partant de CTRL_GAUCHE)
+      ['CTRL_GAUCHE', 'NEZ'],
+      ['CTRL_GAUCHE', 'INTER_GAUCHE'],
+      ['CTRL_GAUCHE', 'CENTRE'],
+      // Bridage droit (3 lignes partant de CTRL_DROIT)
+      ['CTRL_DROIT', 'NEZ'],
+      ['CTRL_DROIT', 'INTER_DROIT'],
+      ['CTRL_DROIT', 'CENTRE']
+    ];
+
+    // Matériau pour les lignes de bridage
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0x333333,
+      linewidth: 1,
+      opacity: 0.8,
+      transparent: true
+    });
+
+    // Créer chaque ligne de bridage
+    bridleConnections.forEach(([startName, endName]) => {
+      const startPos = this.pointsMap.get(startName);
+      const endPos = this.pointsMap.get(endName);
+
+      if (startPos && endPos) {
+        // Créer une ligne droite simple (sans effet caténaire pour les brides internes)
+        const geometry = new THREE.BufferGeometry();
+        const points = [
+          new THREE.Vector3(...startPos),
+          new THREE.Vector3(...endPos)
+        ];
+        geometry.setFromPoints(points);
+
+        const line = new THREE.Line(geometry, lineMaterial);
+        line.name = `Bridle_${startName}_${endName}`;
+        
+        // Stocker la longueur de repos de la bride
+        const restLength = new THREE.Vector3(...startPos).distanceTo(new THREE.Vector3(...endPos));
+        line.userData.restLength = restLength;
+        line.userData.startPoint = startName;
+        line.userData.endPoint = endName;
+
+        this.bridleLines!.add(line);
+      }
+    });
+
+    this.add(this.bridleLines!);
+  }
+
+  /**
+   * Met à jour les lignes de bridage pour suivre les points
+   * À appeler si les points bougent dynamiquement
+   */
+  public updateBridleLines(): void {
+    if (!this.bridleLines) return;
+
+    this.bridleLines.children.forEach((line) => {
+      if (line instanceof THREE.Line) {
+        const startName = line.userData.startPoint;
+        const endName = line.userData.endPoint;
+        const startPos = this.pointsMap.get(startName);
+        const endPos = this.pointsMap.get(endName);
+
+        if (startPos && endPos) {
+          const geometry = line.geometry as THREE.BufferGeometry;
+          const points = [
+            new THREE.Vector3(...startPos),
+            new THREE.Vector3(...endPos)
+          ];
+          geometry.setFromPoints(points);
+          geometry.attributes.position.needsUpdate = true;
+        }
+      }
+    });
   }
 
   /**
@@ -159,7 +228,7 @@ export class Kite2 extends StructuredObject implements ICreatable {
    */
   protected buildSurfaces(): void {
     const { sailColor, sailOpacity } = this.params;
-    
+
     // Créer la toile avec 4 panneaux triangulaires
     const sailParams = {
       points: Array.from(this.pointsMap.entries()),  // Même Map de référence
@@ -178,14 +247,14 @@ export class Kite2 extends StructuredObject implements ICreatable {
         doubleSided: true  // Visible des deux côtés
       }
     };
-    
+
     const sail = this.surfaceFactory.createObject(sailParams);
     this.add(sail);
-    
+
     // Ajouter des marqueurs visuels aux points clés
     this.addVisualMarkers();
   }
-  
+
   /**
    * Méthode helper pour obtenir la Map de points
    * Peut être utilisée si d'autres objets ont besoin des points
@@ -193,7 +262,7 @@ export class Kite2 extends StructuredObject implements ICreatable {
   public getPointsMap(): Map<string, [number, number, number]> {
     return new Map(this.pointsMap);  // Retourner une copie pour éviter les modifications externes
   }
-  
+
   /**
    * Ajuste le facteur de longueur virtuelle des brides principales (NEZ vers CTRL_*)
    * @param factor - Facteur de longueur (0.5 = 50% plus court, 1.0 = normal, 1.5 = 50% plus long)
@@ -203,7 +272,7 @@ export class Kite2 extends StructuredObject implements ICreatable {
     this.bridleLengthFactor = Math.max(0.5, Math.min(1.5, factor));
     console.log(`📏 Facteur de longueur des brides principales: ${this.bridleLengthFactor}`);
   }
-  
+
   /**
    * Retourne la longueur de repos virtuelle pour les brides principales
    * Utilisé par la physique pour calculer les tensions
@@ -213,25 +282,25 @@ export class Kite2 extends StructuredObject implements ICreatable {
   public getBridleRestLength(bridleName: 'left' | 'right'): number | undefined {
     const nez = this.getPoint('NEZ');
     const ctrl = this.getPoint(bridleName === 'left' ? 'CTRL_GAUCHE' : 'CTRL_DROIT');
-    
+
     if (!nez || !ctrl) return undefined;
-    
+
     // Calculer la distance géométrique réelle
     const realDistance = nez.distanceTo(ctrl);
-    
+
     // Appliquer le facteur de longueur virtuelle
     // factor < 1 = bride plus courte = plus de tension
     // factor > 1 = bride plus longue = moins de tension
     return realDistance * this.bridleLengthFactor;
   }
-  
+
   /**
    * Retourne le facteur de longueur actuel des brides
    */
   public getBridleLengthFactor(): number {
     return this.bridleLengthFactor;
   }
-  
+
   /**
    * Ajoute des marqueurs visuels aux points importants
    */
@@ -242,14 +311,14 @@ export class Kite2 extends StructuredObject implements ICreatable {
       const marker = Primitive.sphere(0.025, '#ff0000');
       this.addPrimitiveAt(marker, [nez.x, nez.y, nez.z]);
     }
-    
+
     // Points de contrôle
     const ctrlG = this.getPoint('CTRL_GAUCHE');
     if (ctrlG) {
       const marker = Primitive.sphere(0.025, '#dc143c');
       this.addPrimitiveAt(marker, [ctrlG.x, ctrlG.y, ctrlG.z]);
     }
-    
+
     const ctrlD = this.getPoint('CTRL_DROIT');
     if (ctrlD) {
       const marker = Primitive.sphere(0.025, '#b22222');

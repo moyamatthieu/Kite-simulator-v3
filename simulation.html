@@ -11,6 +11,8 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             overflow: hidden;
             background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
         }
 
         #app {
@@ -63,29 +65,39 @@
             box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
         }
 
-        /* Panneau d'informations */
+        /* Panneau d'informations amélioré */
         #sim-info {
             position: absolute;
-            bottom: 10px;
+            top: 10px;
             right: 10px;
             padding: 15px;
-            background: rgba(0, 0, 0, 0.7);
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(20, 20, 40, 0.85));
             color: white;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 14px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            min-width: 200px;
         }
 
         #sim-info h3 {
             margin: 0 0 10px 0;
             color: #667eea;
+            text-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+        
+        #sim-info div {
+            margin: 4px 0;
         }
 
         /* Contrôles de simulation */
         .sim-controls {
             position: absolute;
-            top: 10px;
+            top: 80px;
             right: 10px;
             display: flex;
+            flex-direction: column;
             gap: 10px;
         }
 
@@ -116,10 +128,10 @@
             top: 70px;
             left: 10px;
             background: rgba(0, 0, 0, 0.7);
-            padding: 15pen;
+            padding: 15px;
             border-radius: 8px;
             color: white;
-            width: 200px;
+            width: 220px;
         }
 
         .wind-controls h4 {
@@ -146,22 +158,72 @@
             color: #aaa;
         }
 
-        /* Indicateurs de physique */
+        /* Indicateurs de physique améliorés */
         .physics-debug {
             position: absolute;
             top: 10px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(20, 20, 40, 0.85));
+            padding: 12px 20px;
+            border-radius: 10px;
             color: white;
-            font-size: 12px;
+            font-size: 13px;
             display: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
 
         body.debug-mode .physics-debug {
             display: block;
+        }
+        
+        .debug-main {
+            margin-bottom: 5px;
+        }
+        
+        .debug-legend {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+        
+        /* Log périodique */
+        .status-log {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            max-width: calc(100vw - 40px);
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(10, 10, 30, 0.9));
+            color: #00ff88;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .log-header {
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .log-content {
+            line-height: 1.5;
+            word-break: break-all;
+            color: #00ff88;
+            text-shadow: 0 0 3px rgba(0, 255, 136, 0.3);
+        }
+        
+        .log-content .warning {
+            color: #ffaa00;
         }
     </style>
 </head>
@@ -177,7 +239,7 @@
     </div>
 
     <!-- Contrôles de simulation -->
-    <div class="sim-controls">
+    <div class="sim-controls" style="top: 250px;">
         <button id="reset-sim">🔄 Reset</button>
         <button id="play-pause">▶️ Lancer</button>
         <button id="debug-physics">🔍 Debug</button>
@@ -213,32 +275,65 @@
         </div>
     </div>
 
-    <!-- Debug physique -->
+    <!-- Debug physique amélioré -->
     <div class="physics-debug">
-        <span>Forces: <span id="force-display">0</span>N</span> |
-        <span>Tension: <span id="tension-display">0</span>N</span> |
-        <span>Altitude: <span id="altitude-display">0</span>m</span>
-        <div style="margin-top: 5px; font-size: 11px;">
+        <div class="debug-main">
+            <span>Forces: <span id="force-display">0</span>N</span> |
+            <span>Tension: <span id="tension-display">0</span>N</span> |
+            <span>Altitude: <span id="altitude-display">0</span>m</span>
+        </div>
+        <div class="debug-legend">
             <span style="color: #00ff00;">● Vitesse</span> |
             <span style="color: #0088ff;">● Portance</span> |
             <span style="color: #ff0000;">● Traînée</span>
         </div>
+    </div>
+    
+    <!-- Log périodique -->
+    <div class="status-log">
+        <div class="log-header">📊 État du système</div>
+        <div id="periodic-log" class="log-content">En attente...</div>
     </div>
 
     <!-- Informations -->
     <div id="sim-info">
         <h3>🎮 Mode Simulation</h3>
         <div>Cerf-volant: <span id="kite-model">Delta</span></div>
-        <div>Vent: <span id="wind-speed-display">15</span> km/h</div>
+        <div>Vent: <span id="wind-speed-display">18</span> km/h</div>
         <div>FPS: <span id="fps">60</span></div>
         <div>Physique: <span id="physics-status">Prête</span></div>
-        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
-            <strong>Contrôles:</strong><br>
-            ← → Flèches pour contrôler la barre
-        </div>
     </div>
 
     <script type="module" src="/src/simulation/simulationLoader.ts"></script>
+    <script type="module">
+        // Configuration du bouton CAO pour le retour
+        document.addEventListener('DOMContentLoaded', () => {
+            const caoBtn = document.getElementById('mode-cao');
+            const simBtn = document.getElementById('mode-simulation');
+            
+            if (caoBtn) {
+                caoBtn.onclick = () => {
+                    // Transition douce
+                    document.body.style.transition = 'opacity 0.3s';
+                    document.body.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 300);
+                };
+            }
+            
+            // Marquer le bouton simulation comme actif
+            if (simBtn) {
+                simBtn.classList.add('active');
+            }
+            
+            // Fade in au chargement
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+            }, 100);
+        });
+    </script>
 </body>
 
 </html>

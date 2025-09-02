@@ -53,11 +53,11 @@ export class AutoLoader {
             for (const [filePath, module] of Object.entries(objectModules)) {
                 // Extraire le nom du fichier (ex: Table.ts -> Table)
                 const fileName = filePath.split('/').pop()?.replace('.ts', '') || '';
-                
+
                 // Ignorer le fichier index.ts s'il existe
                 if (fileName === 'index') continue;
-                
-                // Extraire le dossier parent (ex: ../objects/furniture/Table.ts -> furniture)
+
+                console.log(`🔍 AutoLoader: Analyse du fichier ${filePath} (nom: ${fileName})`);                // Extraire le dossier parent (ex: ../objects/furniture/Table.ts -> furniture)
                 const pathParts = filePath.split('/');
                 const folderName = pathParts[pathParts.length - 2] || 'uncategorized';
                 
@@ -90,17 +90,16 @@ export class AutoLoader {
                                 instance,
                                 folderPath: folderName
                             });
-                            
-                            console.log(`✅ Objet chargé automatiquement: ${id} (${classNameCapitalized || fileName}) depuis ${folderName}/`);
+
+                            console.log(`✅ AutoLoader: Objet chargé: ${id} (${classNameCapitalized || fileName}) depuis ${folderName}/ - ${instance.getName()}`);
                         } else {
-                            console.warn(`⚠️ ${fileName} ne semble pas être un objet ICreatable valide`);
+                            console.warn(`⚠️ ${fileName} ne semble pas être un objet ICreatable valide (méthodes manquantes)`);
                         }
-                        
+
                     } catch (error) {
                         console.error(`❌ Erreur lors du chargement automatique de ${fileName}:`, error);
                     }
                 } else {
-                    const classNameCapitalized = fileName.charAt(0).toUpperCase() + fileName.slice(1);
                     console.warn(`⚠️ Aucune classe ${classNameCapitalized} ou ${fileName} trouvée dans ${filePath}`);
                 }
             }

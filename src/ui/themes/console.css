@@ -1,0 +1,558 @@
+/* ConsolePanel CSS - Interface de console de debugging */
+
+.console-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+/* === TOOLBAR === */
+.console-panel__toolbar {
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-primary);
+    gap: 6px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.console-panel__btn {
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    padding: 4px 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-height: 22px;
+    white-space: nowrap;
+}
+
+.console-panel__btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.console-panel__btn--active {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.console-panel__btn--clear {
+    background: var(--error-bg);
+    color: var(--error-text);
+}
+
+.console-panel__btn--clear:hover {
+    background: var(--error-hover);
+}
+
+.console-panel__btn .icon {
+    font-size: 12px;
+    line-height: 1;
+}
+
+/* === FILTRES === */
+.console-panel__filters {
+    display: flex;
+    gap: 2px;
+    margin-right: 6px;
+}
+
+.console-panel__filter {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 3px;
+    padding: 3px 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 40px;
+    justify-content: center;
+}
+
+.console-panel__filter:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-secondary);
+}
+
+.console-panel__filter--active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.console-panel__filter .icon {
+    font-size: 10px;
+}
+
+.console-panel__filter .count {
+    font-size: 9px;
+    font-weight: bold;
+    min-width: 12px;
+    text-align: center;
+}
+
+/* Couleurs spécifiques par niveau */
+.console-panel__filter--log.console-panel__filter--active {
+    background: #6c757d;
+    border-color: #6c757d;
+}
+
+.console-panel__filter--info.console-panel__filter--active {
+    background: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.console-panel__filter--warn.console-panel__filter--active {
+    background: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.console-panel__filter--error.console-panel__filter--active {
+    background: #dc3545;
+    border-color: #dc3545;
+}
+
+.console-panel__filter--debug.console-panel__filter--active {
+    background: #6f42c1;
+    border-color: #6f42c1;
+}
+
+/* === RECHERCHE === */
+.console-panel__search {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: 3px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--text-primary);
+    width: 200px;
+    transition: all 0.2s ease;
+}
+
+.console-panel__search:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.console-panel__search::placeholder {
+    color: var(--text-tertiary);
+}
+
+/* === PARAMÈTRES === */
+.console-panel__settings {
+    display: flex;
+    gap: 2px;
+}
+
+.console-panel__btn--setting {
+    min-width: 24px;
+    padding: 3px;
+}
+
+.spacer {
+    flex: 1;
+    min-width: 10px;
+}
+
+/* === CONTENU === */
+.console-panel__content {
+    flex: 1;
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.console-panel__logs {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+}
+
+.console-panel__logs::-webkit-scrollbar {
+    width: 8px;
+}
+
+.console-panel__logs::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+.console-panel__logs::-webkit-scrollbar-thumb {
+    background: var(--border-secondary);
+    border-radius: 4px;
+}
+
+.console-panel__logs::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* === ÉTAT VIDE === */
+.console-panel__empty,
+.console-panel__welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--text-tertiary);
+    padding: 20px;
+}
+
+.console-panel__empty .icon,
+.console-panel__welcome .icon {
+    font-size: 24px;
+    opacity: 0.6;
+    margin-bottom: 8px;
+}
+
+.console-panel__empty p,
+.console-panel__welcome p {
+    margin: 0 0 4px 0;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.console-panel__empty small,
+.console-panel__welcome small {
+    opacity: 0.8;
+    line-height: 1.3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.console-panel__welcome code {
+    background: var(--bg-primary);
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 11px;
+    color: var(--accent-primary);
+}
+
+/* === ENTRÉES DE LOG === */
+.log-entry {
+    padding: 2px 8px;
+    border-bottom: 1px solid transparent;
+    transition: background-color 0.1s ease;
+    word-break: break-word;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.log-entry:hover {
+    background: var(--bg-hover);
+}
+
+.log-entry__main {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    min-height: 16px;
+}
+
+.log-entry__expand {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 0;
+    width: 12px;
+    text-align: center;
+    font-size: 8px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: color 0.2s ease;
+}
+
+.log-entry__expand:hover {
+    color: var(--text-secondary);
+}
+
+.log-entry__icon {
+    flex-shrink: 0;
+    font-size: 12px;
+    margin-top: 1px;
+    width: 14px;
+    text-align: center;
+}
+
+.log-entry__timestamp {
+    color: var(--text-tertiary);
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    min-width: 80px;
+}
+
+.log-entry__message {
+    flex: 1;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.log-entry__count {
+    background: var(--accent-primary);
+    color: white;
+    border-radius: 8px;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: bold;
+    flex-shrink: 0;
+    margin-top: 1px;
+    min-width: 16px;
+    text-align: center;
+}
+
+.log-entry__source {
+    color: var(--text-tertiary);
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-entry__stack {
+    margin-top: 4px;
+    margin-left: 32px;
+    padding: 6px 8px;
+    background: var(--bg-primary);
+    border-left: 3px solid var(--border-secondary);
+    border-radius: 3px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    overflow-x: auto;
+}
+
+/* === COULEURS PAR NIVEAU === */
+.log-entry--log {
+    border-left: 3px solid transparent;
+}
+
+.log-entry--info {
+    border-left: 3px solid #17a2b8;
+}
+
+.log-entry--info .log-entry__icon {
+    color: #17a2b8;
+}
+
+.log-entry--warn {
+    border-left: 3px solid #ffc107;
+    background: rgba(255, 193, 7, 0.05);
+}
+
+.log-entry--warn .log-entry__icon {
+    color: #ffc107;
+}
+
+.log-entry--error {
+    border-left: 3px solid #dc3545;
+    background: rgba(220, 53, 69, 0.05);
+}
+
+.log-entry--error .log-entry__icon {
+    color: #dc3545;
+}
+
+.log-entry--error .log-entry__message {
+    color: var(--error-text);
+    font-weight: 500;
+}
+
+.log-entry--debug {
+    border-left: 3px solid #6f42c1;
+    background: rgba(111, 66, 193, 0.05);
+}
+
+.log-entry--debug .log-entry__icon {
+    color: #6f42c1;
+}
+
+/* === INPUT DE COMMANDE === */
+.console-panel__input {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border-primary);
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.console-panel__prompt {
+    color: var(--accent-primary);
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.console-panel__command {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 4px 0;
+    outline: none;
+}
+
+.console-panel__command::placeholder {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 600px) {
+    .console-panel__toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+    }
+    
+    .console-panel__filters {
+        order: 1;
+        justify-content: center;
+        margin: 0;
+    }
+    
+    .console-panel__search {
+        order: 2;
+        width: 100%;
+    }
+    
+    .console-panel__settings {
+        order: 3;
+        justify-content: center;
+    }
+    
+    .spacer {
+        display: none;
+    }
+    
+    .log-entry__timestamp {
+        display: none;
+    }
+    
+    .log-entry__source {
+        max-width: 60px;
+    }
+}
+
+/* === THÈMES === */
+[data-theme="dark"] .console-panel {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --bg-hover: #2a2d2e;
+    --text-primary: #cccccc;
+    --text-secondary: #9d9d9d;
+    --text-tertiary: #6a6a6a;
+    --border-primary: #3e3e42;
+    --border-secondary: #4e4e52;
+    --accent-primary: #4a90e2;
+    --error-bg: #5a1d1d;
+    --error-hover: #722525;
+    --error-text: #f48771;
+}
+
+[data-theme="light"] .console-panel {
+    --bg-primary: #f8f8f8;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f0f0f0;
+    --bg-hover: #e8e8e8;
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border-primary: #d0d0d0;
+    --border-secondary: #e0e0e0;
+    --accent-primary: #4a90e2;
+    --error-bg: #ffe6e6;
+    --error-hover: #ffcccc;
+    --error-text: #cc0000;
+}
+
+/* === ANIMATIONS === */
+@keyframes logFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.log-entry:last-child {
+    animation: logFadeIn 0.2s ease-out;
+}
+
+/* === ACCESSIBILITÉ === */
+@media (prefers-reduced-motion: reduce) {
+    .console-panel__btn,
+    .console-panel__filter,
+    .log-entry,
+    .log-entry__expand {
+        transition: none;
+    }
+    
+    .log-entry:last-child {
+        animation: none;
+    }
+}
+
+/* Focus visible pour l'accessibilité clavier */
+.console-panel__btn:focus-visible,
+.console-panel__filter:focus-visible,
+.console-panel__search:focus-visible,
+.console-panel__command:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
+}
+
+/* === SÉLECTION DE TEXTE === */
+.log-entry__message::selection,
+.log-entry__stack::selection {
+    background: var(--accent-primary);
+    color: white;
+}
+
+/* === SCROLLBAR PERSONNALISÉE === */
+.log-entry__stack::-webkit-scrollbar {
+    height: 6px;
+}
+
+.log-entry__stack::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+}
+
+.log-entry__stack::-webkit-scrollbar-thumb {
+    background: var(--border-secondary);
+    border-radius: 3px;
+}
+
+.log-entry__stack::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}

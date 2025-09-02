@@ -1,0 +1,460 @@
+/**
+ * panels.css - Styles pour le système de panels redimensionnables
+ * Interface moderne inspirée de Godot Editor
+ */
+
+/* === VARIABLES CSS === */
+:root {
+    --panel-bg: #2d3142;
+    --panel-bg-secondary: #3d4355;
+    --panel-border: #4a5068;
+    --panel-header-bg: #252836;
+    --panel-text: #ffffff;
+    --panel-text-secondary: #b0b3c1;
+    --panel-accent: #667eea;
+    --panel-accent-hover: #764ba2;
+    --panel-shadow: rgba(0, 0, 0, 0.3);
+    --panel-radius: 6px;
+    --panel-header-height: 32px;
+    --resize-handle-size: 4px;
+    --resize-handle-hover-size: 8px;
+}
+
+/* === CONTENEUR PRINCIPAL === */
+.panel-manager {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel-bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    color: var(--panel-text);
+    overflow: hidden;
+}
+
+/* === STRUCTURE DE DOCK === */
+.dock-middle {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.dock {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    /* Permettre le défilement si plusieurs panels dépassent la hauteur */
+    overflow: auto;
+}
+
+.dock--top {
+    border-left: none;
+    border-right: none;
+    border-top: none;
+}
+
+.dock--bottom {
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+}
+
+.dock--left {
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    min-width: 0;
+}
+
+.dock--right {
+    border-right: none;
+    border-top: none;
+    border-bottom: none;
+    min-width: 0;
+}
+
+.dock--center {
+    flex: 1;
+    border: none;
+    position: relative;
+}
+
+/* === VIEWPORT CONTAINER === */
+.viewport-container {
+    width: 100%;
+    height: 100%;
+    background: #1a1a2e;
+    position: relative;
+}
+
+/* === FLOATING CONTAINER === */
+.floating-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* === PANELS === */
+.panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+    min-height: 100px;
+    box-shadow: 0 2px 8px var(--panel-shadow);
+    transition: box-shadow 0.2s ease;
+    position: relative;
+    pointer-events: all;
+}
+
+.panel:hover {
+    box-shadow: 0 4px 12px var(--panel-shadow);
+}
+
+.panel--floating {
+    position: absolute;
+    z-index: 1001;
+    resize: both;
+    overflow: auto;
+}
+
+.panel--dragging {
+    z-index: 1002;
+    box-shadow: 0 8px 24px var(--panel-shadow);
+    transform: rotate(1deg);
+}
+
+.panel--resizing {
+    z-index: 1001;
+    box-shadow: 0 6px 16px var(--panel-shadow);
+}
+
+.panel--collapsed .panel__content {
+    display: none !important;
+}
+
+/* === HEADER === */
+.panel__header {
+    background: var(--panel-header-bg);
+    height: var(--panel-header-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius) var(--panel-radius) 0 0;
+    cursor: move;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.panel__title {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--panel-text);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.panel__controls {
+    display: flex;
+    gap: 4px;
+}
+
+.panel__btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--panel-text-secondary);
+    cursor: pointer;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.panel__btn:hover {
+    background: var(--panel-accent);
+    color: var(--panel-text);
+    transform: scale(1.1);
+}
+
+.panel__btn--collapse::before {
+    content: "−";
+}
+
+.panel--collapsed .panel__btn--collapse::before {
+    content: "+";
+}
+
+.panel__btn--close::before {
+    content: "×";
+}
+
+/* === CONTENU === */
+.panel__content {
+    flex: 1;
+    padding: 12px;
+    overflow: auto;
+    background: var(--panel-bg-secondary);
+    border-radius: 0 0 var(--panel-radius) var(--panel-radius);
+}
+
+/* Scrollbar personnalisée */
+.panel__content::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.panel__content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.panel__content::-webkit-scrollbar-thumb {
+    background: var(--panel-accent);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.panel__content::-webkit-scrollbar-thumb:hover {
+    background: var(--panel-accent-hover);
+}
+
+/* === POIGNÉES DE REDIMENSIONNEMENT === */
+.panel__resize-handle {
+    position: absolute;
+    background: transparent;
+    transition: background 0.2s ease;
+    z-index: 10;
+}
+
+.panel__resize-handle:hover {
+    background: var(--panel-accent);
+}
+
+/* Poignées directionnelles */
+.panel__resize-handle--n {
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: var(--resize-handle-size);
+    cursor: n-resize;
+}
+
+.panel__resize-handle--s {
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: var(--resize-handle-size);
+    cursor: s-resize;
+}
+
+.panel__resize-handle--e {
+    top: 0;
+    right: -2px;
+    bottom: 0;
+    width: var(--resize-handle-size);
+    cursor: e-resize;
+}
+
+.panel__resize-handle--w {
+    top: 0;
+    left: -2px;
+    bottom: 0;
+    width: var(--resize-handle-size);
+    cursor: w-resize;
+}
+
+.panel__resize-handle--ne {
+    top: -2px;
+    right: -2px;
+    width: var(--resize-handle-hover-size);
+    height: var(--resize-handle-hover-size);
+    cursor: ne-resize;
+    border-radius: 0 var(--panel-radius) 0 0;
+}
+
+.panel__resize-handle--nw {
+    top: -2px;
+    left: -2px;
+    width: var(--resize-handle-hover-size);
+    height: var(--resize-handle-hover-size);
+    cursor: nw-resize;
+    border-radius: var(--panel-radius) 0 0 0;
+}
+
+.panel__resize-handle--se {
+    bottom: -2px;
+    right: -2px;
+    width: var(--resize-handle-hover-size);
+    height: var(--resize-handle-hover-size);
+    cursor: se-resize;
+    border-radius: 0 0 var(--panel-radius) 0;
+}
+
+.panel__resize-handle--sw {
+    bottom: -2px;
+    left: -2px;
+    width: var(--resize-handle-hover-size);
+    height: var(--resize-handle-hover-size);
+    cursor: sw-resize;
+    border-radius: 0 0 0 var(--panel-radius);
+}
+
+/* Hover effects pour les poignées */
+.panel__resize-handle--n:hover,
+.panel__resize-handle--s:hover {
+    height: var(--resize-handle-hover-size);
+}
+
+.panel__resize-handle--e:hover,
+.panel__resize-handle--w:hover {
+    width: var(--resize-handle-hover-size);
+}
+
+/* === PANELS DOCKÉS === */
+.dock .panel {
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    box-shadow: none;
+    margin: 0;
+}
+
+.dock .panel:last-child {
+    border-bottom: none;
+}
+
+.dock .panel__header {
+    border-radius: 0;
+}
+
+.dock .panel__content {
+    border-radius: 0;
+}
+
+/* === ANIMATIONS === */
+@keyframes panelSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.panel {
+    animation: panelSlideIn 0.2s ease-out;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+    .dock--left,
+    .dock--right {
+        display: none;
+    }
+    
+    .panel {
+        min-width: 200px;
+    }
+}
+
+/* === THÈMES === */
+.theme-light {
+    --panel-bg: #f5f5f5;
+    --panel-bg-secondary: #ffffff;
+    --panel-border: #d1d5db;
+    --panel-header-bg: #e5e7eb;
+    --panel-text: #111827;
+    --panel-text-secondary: #6b7280;
+    --panel-shadow: rgba(0, 0, 0, 0.1);
+}
+
+.theme-godot {
+    --panel-bg: #383c4a;
+    --panel-bg-secondary: #404552;
+    --panel-border: #2f343f;
+    --panel-header-bg: #2f343f;
+    --panel-text: #ffffff;
+    --panel-text-secondary: #bdc3c7;
+    --panel-accent: #3daee9;
+    --panel-accent-hover: #93cee9;
+}
+
+/* === UTILITAIRES === */
+.panel--hidden {
+    display: none !important;
+}
+
+.panel--minimized {
+    height: var(--panel-header-height) !important;
+    min-height: var(--panel-header-height) !important;
+}
+
+.panel--maximized {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 2000 !important;
+    border-radius: 0 !important;
+}
+
+/* === INDICATEURS VISUELS === */
+.panel--active {
+    border-color: var(--panel-accent);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+}
+
+.panel--loading .panel__content {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.panel--error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+}
+
+/* === SPLITTERS === */
+.dock-splitter {
+    background: var(--panel-border);
+    position: relative;
+    z-index: 100;
+}
+
+.dock-splitter--horizontal {
+    height: 2px;
+    cursor: row-resize;
+}
+
+.dock-splitter--vertical {
+    width: 2px;
+    cursor: col-resize;
+}
+
+.dock-splitter:hover {
+    background: var(--panel-accent);
+}
+
+.dock-splitter--dragging {
+    background: var(--panel-accent-hover);
+}

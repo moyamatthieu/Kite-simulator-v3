@@ -1,0 +1,354 @@
+/**
+ * scene-tree.css - Styles pour le panel d'arbre de scène
+ */
+
+/* === CONTENEUR PRINCIPAL === */
+.scene-tree {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+}
+
+/* === TOOLBAR === */
+.scene-tree__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--panel-border);
+    background: var(--panel-header-bg);
+    flex-shrink: 0;
+}
+
+.scene-tree__btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--panel-text-secondary);
+    cursor: pointer;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.scene-tree__btn:hover {
+    background: var(--panel-accent);
+    color: var(--panel-text);
+}
+
+.spacer {
+    flex: 1;
+}
+
+/* === RECHERCHE === */
+.scene-tree__search {
+    padding: 8px;
+    border-bottom: 1px solid var(--panel-border);
+    flex-shrink: 0;
+}
+
+.scene-tree__search input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    background: var(--panel-bg);
+    color: var(--panel-text);
+    font-size: 12px;
+    outline: none;
+}
+
+.scene-tree__search input:focus {
+    border-color: var(--panel-accent);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.scene-tree__search input::placeholder {
+    color: var(--panel-text-secondary);
+}
+
+/* === CONTENEUR DE L'ARBRE === */
+.scene-tree__container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.scene-tree__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--panel-text-secondary);
+    text-align: center;
+    padding: 20px;
+}
+
+.scene-tree__empty .icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+}
+
+.scene-tree__empty p {
+    margin: 0 0 8px 0;
+    font-weight: 500;
+}
+
+.scene-tree__empty small {
+    font-size: 11px;
+    opacity: 0.7;
+    line-height: 1.4;
+}
+
+/* === NŒUDS DE L'ARBRE === */
+.scene-tree__nodes {
+    padding: 4px 0;
+}
+
+.tree-node {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px;
+    margin: 1px 4px;
+    transition: background-color 0.1s ease;
+}
+
+.tree-node:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tree-node--selected {
+    background: var(--panel-accent) !important;
+    color: white;
+}
+
+.tree-node--selected .tree-node__btn {
+    color: white;
+}
+
+/* === CONTENU DU NŒUD === */
+.tree-node__content {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding: 2px 4px;
+    gap: 4px;
+}
+
+.tree-node__expand {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--panel-text-secondary);
+    flex-shrink: 0;
+}
+
+.tree-node__expand:hover {
+    color: var(--panel-text);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+.tree-node__icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.tree-node__name {
+    flex: 1;
+    font-size: 12px;
+    line-height: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+.tree-node__name:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* === INPUT DE RENOMMAGE === */
+.tree-node__name-input {
+    flex: 1;
+    border: 1px solid var(--panel-accent);
+    border-radius: 2px;
+    background: var(--panel-bg);
+    color: var(--panel-text);
+    font-size: 12px;
+    padding: 2px 4px;
+    outline: none;
+    margin: 0;
+}
+
+/* === ACTIONS DU NŒUD === */
+.tree-node__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.tree-node:hover .tree-node__actions {
+    opacity: 1;
+}
+
+.tree-node--selected .tree-node__actions {
+    opacity: 1;
+}
+
+.tree-node__btn {
+    width: 16px;
+    height: 16px;
+    border: none;
+    background: transparent;
+    color: var(--panel-text-secondary);
+    cursor: pointer;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    transition: all 0.2s ease;
+}
+
+.tree-node__btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--panel-text);
+}
+
+/* === INDICATEURS VISUELS === */
+.tree-node--hidden {
+    opacity: 0.5;
+}
+
+.tree-node--hidden .tree-node__name {
+    text-decoration: line-through;
+}
+
+.tree-node--locked .tree-node__icon::after {
+    content: '🔒';
+    position: absolute;
+    font-size: 8px;
+    bottom: -2px;
+    right: -2px;
+}
+
+/* === TYPES DE NŒUDS === */
+.tree-node[data-node-type="StructuredObject"] {
+    border-left: 2px solid var(--panel-accent);
+}
+
+.tree-node[data-node-type="Group"] {
+    border-left: 2px solid #fbbf24;
+}
+
+.tree-node[data-node-type="Light"] {
+    border-left: 2px solid #fcd34d;
+}
+
+.tree-node[data-node-type="Camera"] {
+    border-left: 2px solid #60a5fa;
+}
+
+/* === ANIMATION D'EXPANSION === */
+.tree-node__children {
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
+}
+
+.tree-node__children--collapsed {
+    max-height: 0;
+}
+
+.tree-node__children--expanded {
+    max-height: 1000px;
+}
+
+/* === SCROLLBAR === */
+.scene-tree__container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scene-tree__container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.scene-tree__container::-webkit-scrollbar-thumb {
+    background: var(--panel-accent);
+    border-radius: 3px;
+}
+
+.scene-tree__container::-webkit-scrollbar-thumb:hover {
+    background: var(--panel-accent-hover);
+}
+
+/* === DRAG & DROP === */
+.tree-node--drag-over {
+    background: rgba(102, 126, 234, 0.3) !important;
+    border: 1px dashed var(--panel-accent);
+}
+
+.tree-node--dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+    .scene-tree__toolbar {
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+    
+    .scene-tree__btn {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+    }
+}
+
+/* === ÉTATS SPÉCIAUX === */
+.scene-tree--loading .scene-tree__container {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.scene-tree--loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid transparent;
+    border-top: 2px solid var(--panel-accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
