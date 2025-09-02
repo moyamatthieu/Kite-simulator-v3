@@ -14,6 +14,7 @@ export default defineConfig({
       '@renderer': resolve(__dirname, 'src/renderer/index'),
       '@types': resolve(__dirname, 'src/types'),
       '@export': resolve(__dirname, 'src/export/index'),
+      '@ui': resolve(__dirname, 'src/ui'),
       
       // 🏭 Factories par métier  
       '@factories/furniture': resolve(__dirname, 'src/factories/FurnitureFactory'),
@@ -38,7 +39,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        simulation: resolve(__dirname, 'simulation.html')
+        simulation: resolve(__dirname, 'simulation.html'),
+        simulationV9: resolve(__dirname, 'simulation-v9.html')
       }
     }
   }

@@ -194,6 +194,8 @@ export class SimulationLoader {
             'SimulationAppV6',
             'SimulationAppV7',
             'SimulationAppV7_1',
+            'SimulationAppV8',
+            'SimulationAppV9',
             'KiteSimulationV4',
             'KiteSimulation',
             'App',

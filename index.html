@@ -10,6 +10,8 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             overflow: hidden;
             background: #1a1a2e;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
         }
         
         #app {
@@ -222,5 +224,13 @@
     </div>
     
     <script type="module" src="/src/main.ts"></script>
+    <script>
+        // Fade in au chargement
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+            }, 100);
+        });
+    </script>
 </body>
 </html>

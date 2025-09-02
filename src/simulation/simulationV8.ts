@@ -75,7 +75,7 @@ import { Kite2 } from '@objects/organic/Kite2';
 class PhysicsConstants {
     static readonly EPSILON = 1e-4;                    // Un tout petit nombre pour dire "presque zéro"
     static readonly CONTROL_DEADZONE = 0.01;           // La barre ne réagit pas si vous la bougez très peu
-    static readonly LINE_CONSTRAINT_TOLERANCE = 0.005; // Les lignes peuvent s'étirer de 5mm max (marge d'erreur)
+    static readonly LINE_CONSTRAINT_TOLERANCE = 0.0005; // Les lignes peuvent s'étirer de 5mm max (marge d'erreur)
     static readonly LINE_TENSION_FACTOR = 0.99;        // Les lignes restent un peu plus courtes pour rester tendues
     static readonly GROUND_FRICTION = 0.85;            // Le sol freine le kite de 15% s'il le touche
     static readonly CATENARY_SEGMENTS = 5;             // Nombre de points pour dessiner la courbe des lignes
@@ -83,8 +83,8 @@ class PhysicsConstants {
     // Limites de sécurité - pour que la simulation ne devienne pas folle
     static readonly MAX_FORCE = 1000;                  // Force max en Newtons (comme soulever 100kg)
     static readonly MAX_VELOCITY = 30;                 // Vitesse max : 30 m/s = 108 km/h
-    static readonly MAX_ANGULAR_VELOCITY = 5;          // Rotation max : presque 1 tour par seconde
-    static readonly MAX_ACCELERATION = 50;             // Le kite ne peut pas accélérer plus vite qu'une voiture de sport
+    static readonly MAX_ANGULAR_VELOCITY = 25;          // Rotation max : presque 1 tour par seconde
+    static readonly MAX_ACCELERATION = 100;             // Le kite ne peut pas accélérer plus vite qu'une voiture de sport
     static readonly MAX_ANGULAR_ACCELERATION = 20;     // La rotation ne peut pas s'emballer
 }
 
@@ -163,26 +163,26 @@ const CONFIG = {
         gravity: 9.81,              // La gravité terrestre (fait tomber les objets)
         airDensity: 1.225,          // Densité de l'air (l'air épais pousse plus fort)
         deltaTimeMax: 0.016,        // Mise à jour max 60 fois par seconde (pour rester fluide)
-        angularDamping: 0.95,       // Le kite ralentit sa rotation de 5% à chaque instant
-        linearDamping: 0.98,        // Le kite perd 2% de sa vitesse à cause du frottement de l'air
-        angularDragCoeff: 0.02      // L'air résiste un peu quand le kite tourne
+        angularDamping: 0.85,       // Amortissement angulaire équilibré
+        linearDamping: 0.92,        // Friction air réaliste (8% de perte par frame)
+        angularDragCoeff: 0.10      // Résistance rotation augmentée pour moins d'oscillations
     },
     aero: {
-        liftScale: 1.35,            // Facteur d'échelle pour la portance
-        dragScale: 1.0              // Facteur d'échelle pour la traînée
+        liftScale: 1.5,             // Portance augmentée pour meilleur vol
+        dragScale: 1.0              // Traînée naturelle
     },
     kite: {
         mass: 0.28,                 // kg - Masse du cerf-volant
         area: KiteGeometry.TOTAL_AREA, // m² - Surface totale
-        inertia: 0.15,              // kg·m² - Moment d'inertie (augmenté pour stabilité)
-        minHeight: 0.0              // m - Altitude minimale (sol)
+        inertia: 0.08,              // kg·m² - Moment d'inertie réduit pour meilleure réactivité
+        minHeight: 0.5              // m - Altitude minimale (plus haut pour éviter le sol)
     },
     lines: {
         defaultLength: 15,          // m - Longueur par défaut
-        stiffness: 5000,            // N/m - Raideur des lignes (comme une corde raide)
-        maxTension: 500,            // N - Tension maximale par ligne
-        maxSag: 0.01,               // Affaissement max pour visuel
-        catenarySagFactor: 4        // Facteur de forme caténaire
+        stiffness: 25000,           // N/m - Rigidité renforcée pour mieux maintenir le kite
+        maxTension: 1000,           // N - Tension max augmentée pour éviter rupture
+        maxSag: 0.008,              // Affaissement réduit pour lignes plus tendues
+        catenarySagFactor: 3        // Facteur de forme caténaire ajusté
     },
     wind: {
         defaultSpeed: 18,           // km/h
@@ -514,13 +514,13 @@ class AerodynamicsCalculator {
         // Si rightForce > leftForce → rotation vers la gauche
         // AUCUN facteur artificiel nécessaire!
 
-        // 9. Décomposition vectorielle en portance et traînée
-        const dragMagnitude = totalForce.dot(windDir);  // Projection sur le vent
-        const baseDrag = windDir.clone().multiplyScalar(Math.max(0, dragMagnitude));
-        const baseLift = totalForce.clone().sub(baseDrag);  // Composante perpendiculaire
+        // 9. Pour un cerf-volant, on retourne directement les forces totales
+        // La décomposition lift/drag classique n'est pas adaptée car le kite
+        // peut voler dans toutes les orientations (looping, vrilles, etc.)
+        // Les forces émergent naturellement de la pression sur chaque surface
 
-        const lift = baseLift.multiplyScalar(CONFIG.aero.liftScale);
-        const drag = baseDrag.multiplyScalar(CONFIG.aero.dragScale);
+        const lift = totalForce.clone().multiplyScalar(CONFIG.aero.liftScale);
+        const drag = new THREE.Vector3(); // Traînée intégrée dans les forces totales
 
         // Mise à l'échelle du couple
         const baseTotalMag = Math.max(PhysicsConstants.EPSILON, totalForce.length());
@@ -548,10 +548,10 @@ class AerodynamicsCalculator {
             return { apparentSpeed: 0, liftMag: 0, dragMag: 0, lOverD: 0, aoaDeg: 0 };
         }
 
-        const { lift, drag } = this.calculateForces(apparentWind, kiteOrientation);
+        const { lift } = this.calculateForces(apparentWind, kiteOrientation);
         const liftMag = lift.length();
-        const dragMag = drag.length();
-        const lOverD = dragMag > PhysicsConstants.EPSILON ? (liftMag / dragMag) : 0;
+        const dragMag = 0; // Traînée intégrée dans les forces totales
+        const lOverD = 0; // Ratio non applicable pour un cerf-volant
 
         // Calcul approximatif de l'angle d'attaque
         const windDir = apparentWind.clone().normalize();
@@ -615,9 +615,14 @@ class LineSystem {
         rightForce: THREE.Vector3;
         torque: THREE.Vector3;
     } {
-        // Points d'attache des lignes sur le kite (en coordonnées locales)
-        const leftAttach = new THREE.Vector3(-0.15, 0.3, 0.4);
-        const rightAttach = new THREE.Vector3(0.15, 0.3, 0.4);
+        // Points d'attache des lignes sur le kite (depuis la géométrie réelle)
+        const ctrlLeft = kite.getPoint('CTRL_GAUCHE');
+        const ctrlRight = kite.getPoint('CTRL_DROIT');
+        if (!ctrlLeft || !ctrlRight) {
+            return { leftForce: new THREE.Vector3(), rightForce: new THREE.Vector3(), torque: new THREE.Vector3() };
+        }
+        const leftAttach = ctrlLeft.clone();
+        const rightAttach = ctrlRight.clone();
 
         // Transformer en coordonnées monde
         const leftWorld = leftAttach.clone().applyQuaternion(kite.quaternion).add(kite.position);
@@ -737,7 +742,17 @@ class KiteController {
     private kite: Kite2;
     private state: KiteState;
     private previousPosition: THREE.Vector3;
-    private angularWarnCooldown: number;
+    // États pour les warnings
+    private hasExcessiveAccel: boolean = false;
+    private hasExcessiveVelocity: boolean = false;
+    private hasExcessiveAngular: boolean = false;
+    private lastAccelMagnitude: number = 0;
+    private lastVelocityMagnitude: number = 0;
+
+    // Lissage temporel des forces
+    private smoothedForce: THREE.Vector3;
+    private smoothedTorque: THREE.Vector3;
+    private readonly FORCE_SMOOTHING = 0.15; // Lissage léger (85% de la nouvelle force appliquée)
 
     constructor(kite: Kite2) {
         this.kite = kite;
@@ -748,8 +763,11 @@ class KiteController {
             orientation: kite.quaternion.clone()
         };
         this.previousPosition = kite.position.clone();
-        this.angularWarnCooldown = 0;
         this.kite.userData.lineLength = CONFIG.lines.defaultLength;
+
+        // Initialiser les forces lissées
+        this.smoothedForce = new THREE.Vector3();
+        this.smoothedTorque = new THREE.Vector3();
     }
 
     /**
@@ -773,8 +791,13 @@ class KiteController {
         forces = this.validateForces(forces);
         torque = this.validateTorque(torque);
 
-        // Intégration physique
-        const newPosition = this.integratePhysics(forces, deltaTime);
+        // Appliquer le lissage temporel (filtre passe-bas)
+        // Cela simule l'inertie du tissu et la viscosité de l'air
+        this.smoothedForce.lerp(forces, 1 - this.FORCE_SMOOTHING);
+        this.smoothedTorque.lerp(torque, 1 - this.FORCE_SMOOTHING);
+
+        // Intégration physique avec les forces lissées
+        const newPosition = this.integratePhysics(this.smoothedForce, deltaTime);
 
         // Appliquer les contraintes
         this.enforceLineConstraints(newPosition, handles);
@@ -785,8 +808,8 @@ class KiteController {
         this.kite.position.copy(newPosition);
         this.previousPosition.copy(newPosition);
 
-        // Mise à jour de l'orientation
-        this.updateOrientation(torque, deltaTime);
+        // Mise à jour de l'orientation avec le couple lissé
+        this.updateOrientation(this.smoothedTorque, deltaTime);
     }
 
     /**
@@ -818,22 +841,28 @@ class KiteController {
     private integratePhysics(forces: THREE.Vector3, deltaTime: number): THREE.Vector3 {
         // Newton : accélération = Force / masse
         const acceleration = forces.divideScalar(CONFIG.kite.mass);
+        this.lastAccelMagnitude = acceleration.length();
 
         // Sécurité : limiter pour éviter l'explosion numérique
         if (acceleration.length() > PhysicsConstants.MAX_ACCELERATION) {
-            console.warn(`⚠️ Accélération excessive: ${acceleration.length()}m/s²`);
+            this.hasExcessiveAccel = true;
             acceleration.normalize().multiplyScalar(PhysicsConstants.MAX_ACCELERATION);
+        } else {
+            this.hasExcessiveAccel = false;
         }
 
         // Intégration d'Euler : v(t+dt) = v(t) + a·dt
         this.state.velocity.add(acceleration.multiplyScalar(deltaTime));
         // Amortissement : simule la résistance de l'air
         this.state.velocity.multiplyScalar(CONFIG.physics.linearDamping);
+        this.lastVelocityMagnitude = this.state.velocity.length();
 
         // Garde-fou vitesse max (réalisme physique)
         if (this.state.velocity.length() > PhysicsConstants.MAX_VELOCITY) {
-            console.warn(`⚠️ Vitesse excessive: ${this.state.velocity.length()}m/s`);
+            this.hasExcessiveVelocity = true;
             this.state.velocity.normalize().multiplyScalar(PhysicsConstants.MAX_VELOCITY);
+        } else {
+            this.hasExcessiveVelocity = false;
         }
 
         // Position : x(t+dt) = x(t) + v·dt
@@ -847,6 +876,12 @@ class KiteController {
      * permettant la rotation naturelle du kite
      */
     private enforceLineConstraints(predictedPosition: THREE.Vector3, handles: HandlePositions): void {
+        // PRINCIPE DE LA PYRAMIDE DE CONTRAINTE :
+        // Le cerf-volant est constamment poussé par le vent contre la sphère de contrainte
+        // Les lignes + brides forment une pyramide qui maintient une géométrie stable
+        // Le kite "glisse" sur la surface de la sphère définie par la longueur des lignes
+        // C'est quand il sort de cette sphère qu'il "décroche"
+
         const lineLength = this.kite.userData.lineLength || CONFIG.lines.defaultLength;
         const tol = PhysicsConstants.LINE_CONSTRAINT_TOLERANCE;
 
@@ -963,11 +998,9 @@ class KiteController {
 
     /**
      * Met à jour l'orientation du cerf-volant - Dynamique du corps rigide
-     * Implémente : Couple = Moment d'inertie × Accélération angulaire (T = Iα)
+     * L'orientation émerge naturellement des contraintes des lignes et brides
      */
     private updateOrientation(torque: THREE.Vector3, deltaTime: number): void {
-        this.angularWarnCooldown = Math.max(0, this.angularWarnCooldown - deltaTime);
-
         // Couple d'amortissement (résistance à la rotation dans l'air)
         const dampTorque = this.state.angularVelocity.clone()
             .multiplyScalar(-CONFIG.physics.angularDragCoeff);
@@ -978,10 +1011,6 @@ class KiteController {
 
         // Limiter l'accélération angulaire
         if (angularAcceleration.length() > PhysicsConstants.MAX_ANGULAR_ACCELERATION) {
-            if (this.angularWarnCooldown <= 0) {
-                console.warn(`⚠️ Accélération angulaire excessive: ${angularAcceleration.length()}rad/s²`);
-                this.angularWarnCooldown = 0.5;
-            }
             angularAcceleration.normalize().multiplyScalar(PhysicsConstants.MAX_ANGULAR_ACCELERATION);
         }
 
@@ -991,8 +1020,10 @@ class KiteController {
 
         // Limiter la vitesse angulaire
         if (this.state.angularVelocity.length() > PhysicsConstants.MAX_ANGULAR_VELOCITY) {
-            console.warn(`⚠️ Vitesse angulaire excessive: ${this.state.angularVelocity.length()}rad/s`);
+            this.hasExcessiveAngular = true;
             this.state.angularVelocity.normalize().multiplyScalar(PhysicsConstants.MAX_ANGULAR_VELOCITY);
+        } else {
+            this.hasExcessiveAngular = false;
         }
 
         // Appliquer la rotation
@@ -1017,6 +1048,25 @@ class KiteController {
 
     setLineLength(length: number): void {
         this.kite.userData.lineLength = length;
+    }
+
+    /**
+     * Retourne les états de warning pour l'affichage
+     */
+    getWarnings(): {
+        accel: boolean;
+        velocity: boolean;
+        angular: boolean;
+        accelValue: number;
+        velocityValue: number;
+    } {
+        return {
+            accel: this.hasExcessiveAccel,
+            velocity: this.hasExcessiveVelocity,
+            angular: this.hasExcessiveAngular,
+            accelValue: this.lastAccelMagnitude,
+            velocityValue: this.lastVelocityMagnitude
+        };
     }
 }
 
@@ -1210,7 +1260,10 @@ class PhysicsEngine {
      * 
      * C'est comme une boucle infinie qui simule la réalité !
      */
-    update(deltaTime: number, targetBarRotation: number): void {
+    update(deltaTime: number, targetBarRotation: number, isPaused: boolean = false): void {
+        // Si en pause, ne rien faire
+        if (isPaused) return;
+
         // Limiter le pas de temps pour éviter l'instabilité numérique
         deltaTime = Math.min(deltaTime, CONFIG.physics.deltaTimeMax);
 
@@ -1249,8 +1302,8 @@ class PhysicsEngine {
 
         // Somme vectorielle de toutes les forces (2ème loi de Newton)
         const totalForce = new THREE.Vector3()
-            .add(lift)          // Portance perpendiculaire au vent
-            .add(drag)          // Traînée dans le sens du vent
+            .add(lift)          // Forces aérodynamiques totales (lift + drag combinés)
+            .add(drag)          // (Vide - traînée intégrée dans lift)
             .add(gravity)       // Poids vers le bas
             .add(leftForce)     // Tension ligne gauche vers pilote
             .add(rightForce);   // Tension ligne droite vers pilote
@@ -1307,7 +1360,7 @@ export class SimulationAppV8 {
     private isPlaying: boolean = true;
     private leftLine: THREE.Line | null = null;
     private rightLine: THREE.Line | null = null;
-    private debugMode: boolean = false; // Désactivé par défaut en V7
+    private debugMode: boolean = true; // Activé par défaut
     private debugArrows: THREE.ArrowHelper[] = [];
     private frameCount: number = 0;
 
@@ -1459,10 +1512,19 @@ export class SimulationAppV8 {
 
         const debugBtn = document.getElementById('debug-physics');
         if (debugBtn) {
+            // Initialiser l'état du bouton
+            debugBtn.textContent = this.debugMode ? '🔍 Debug ON' : '🔍 Debug OFF';
+            debugBtn.classList.toggle('active', this.debugMode);
+
             debugBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.toggleDebugMode();
             });
+        }
+
+        // Activer la classe debug-mode sur le body si debugMode est true
+        if (this.debugMode) {
+            document.body.classList.add('debug-mode');
         }
 
         this.setupWindControls();
@@ -1596,7 +1658,7 @@ export class SimulationAppV8 {
         const debugBtn = document.getElementById('debug-physics');
 
         if (debugBtn) {
-            debugBtn.textContent = this.debugMode ? '🔍 Debug ON' : '🔍 Debug';
+            debugBtn.textContent = this.debugMode ? '🔍 Debug ON' : '🔍 Debug OFF';
             debugBtn.classList.toggle('active', this.debugMode);
         }
 
@@ -1622,10 +1684,18 @@ export class SimulationAppV8 {
         const kiteState = this.physicsEngine.getKiteController().getState();
         const kitePosition = this.kite.position.clone();
 
+        // Calculer le centre géométrique entre NEZ et SPINE_BAS
+        // NEZ est à [0, 0.65, 0] et SPINE_BAS à [0, 0, 0] en coordonnées locales
+        // Le centre est donc à [0, 0.325, 0] en local
+        const centerLocal = new THREE.Vector3(0, 0.325, 0);
+        const centerWorld = centerLocal.clone()
+            .applyQuaternion(this.kite.quaternion)
+            .add(kitePosition);
+
         if (kiteState.velocity.length() > 0.1) {
             const velocityArrow = new THREE.ArrowHelper(
                 kiteState.velocity.clone().normalize(),
-                kitePosition,
+                centerWorld,
                 kiteState.velocity.length() * 0.5,
                 0x00ff00,
                 undefined,
@@ -1652,7 +1722,7 @@ export class SimulationAppV8 {
             if (lift.length() > 0.01) {
                 const liftArrow = new THREE.ArrowHelper(
                     lift.clone().normalize(),
-                    kitePosition,
+                    centerWorld,
                     Math.sqrt(lift.length()) * 0.3,
                     0x0088ff,
                     undefined,
@@ -1665,7 +1735,7 @@ export class SimulationAppV8 {
             if (drag.length() > 0.01) {
                 const dragArrow = new THREE.ArrowHelper(
                     drag.clone().normalize(),
-                    kitePosition,
+                    centerWorld,
                     Math.sqrt(drag.length()) * 0.3,
                     0xff0000,
                     undefined,
@@ -1683,6 +1753,9 @@ export class SimulationAppV8 {
         const forceDisplay = document.getElementById('force-display');
         const tensionDisplay = document.getElementById('tension-display');
         const altitudeDisplay = document.getElementById('altitude-display');
+        const windSpeedDisplay = document.getElementById('wind-speed-display');
+        const fpsDisplay = document.getElementById('fps');
+        const physicsStatus = document.getElementById('physics-status');
 
         // Utiliser les forces cach\u00e9es si disponibles, sinon recalculer
         let lift: THREE.Vector3, drag: THREE.Vector3;
@@ -1731,13 +1804,37 @@ export class SimulationAppV8 {
         if (altitudeDisplay) {
             altitudeDisplay.textContent = kitePosition.y.toFixed(1);
         }
+
+        // Mettre à jour les indicateurs supplémentaires
+        if (windSpeedDisplay) {
+            const windParams = this.physicsEngine.getWindSimulator().getParams();
+            windSpeedDisplay.textContent = windParams.speed.toFixed(0);
+        }
+
+        if (fpsDisplay) {
+            const fps = this.clock.getDelta() > 0 ? Math.round(1 / this.clock.getDelta()) : 60;
+            fpsDisplay.textContent = fps.toString();
+        }
+
+        if (physicsStatus) {
+            const warnings = this.physicsEngine.getKiteController().getWarnings();
+            if (warnings.accel || warnings.velocity || warnings.angular) {
+                physicsStatus.textContent = '⚠️ Limites';
+                physicsStatus.style.color = '#ffaa00';
+            } else {
+                physicsStatus.textContent = '✅ Stable';
+                physicsStatus.style.color = '#00ff88';
+            }
+        }
     }
 
     private animate = (): void => {
         requestAnimationFrame(this.animate);
 
         this.frameCount++;
-        if (this.frameCount % 60 === 0) {
+
+        // Mise à jour des logs à 60Hz (chaque frame)
+        {
             const kitePos = this.kite.position.clone();
             const pilotPos = this.controlBar.position.clone();
             const distance = kitePos.distanceTo(pilotPos);
@@ -1751,19 +1848,113 @@ export class SimulationAppV8 {
             const forces = AerodynamicsCalculator.calculateForces(apparent, this.kite.quaternion);
             const isTaut = distance >= currentLineLength * PhysicsConstants.LINE_TENSION_FACTOR;
 
+            // Indicateur de décrochage basé sur la position dans la sphère de contrainte
+            const distanceRatio = distance / currentLineLength;
+            const isNearStall = distanceRatio > 0.97;  // > 97% = proche du décrochage
+            const isStalled = distanceRatio > 0.995;   // > 99.5% = décroche
+            const stallWarning = isStalled ? '🚨 DÉCROCHAGE!' : (isNearStall ? '⚠️ Proche décrochage' : '');
+
+            // Calcul des métriques aéronautiques
+            const metrics = AerodynamicsCalculator.computeMetrics(apparent, this.kite.quaternion);
+            const windSpeed = wind.length();
+            const apparentSpeed = apparent.length();
+
             // Afficher l'asym\u00e9trie des forces gauche/droite
             const leftMag = forces.leftForce?.length() || 0;
             const rightMag = forces.rightForce?.length() || 0;
             const asymmetry = ((leftMag - rightMag) / Math.max(leftMag + rightMag, 1)) * 100;
 
-            console.log(
-                `📊 [Frame ${this.frameCount}] ` +
-                `Dist: ${distance.toFixed(2)}/${currentLineLength}m ` +
+            // Forces aérodynamiques totales
+            const aeroForceMag = forces.lift.length(); // Force aéro totale
+
+            // Calculer la position dans la fenêtre de vol
+            const deltaX = kitePos.x - pilotPos.x;
+            const deltaY = kitePos.y - pilotPos.y;
+            const deltaZ = kitePos.z - pilotPos.z;
+
+            // Angle X (horizontal) : positif = droite, négatif = gauche
+            const angleX = Math.atan2(deltaX, -deltaZ) * 180 / Math.PI;
+
+            // Angle Y (vertical) : positif = haut, négatif = bas
+            const horizontalDist = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+            const angleY = Math.atan2(deltaY, horizontalDist) * 180 / Math.PI;
+
+            // Distance Z (profondeur)
+            const distZ = Math.abs(deltaZ);
+
+            // Récupérer les infos de contrôle de la barre
+            const barRotation = this.physicsEngine.getControlBarManager().getRotation();
+            const barRotationDeg = Math.round(barRotation * 180 / Math.PI);
+            const barDirection = barRotation > 0.01 ? '←' : (barRotation < -0.01 ? '→' : '─');
+
+            // Calculer les longueurs réelles des lignes
+            const ctrlLeft = this.kite.getPoint('CTRL_GAUCHE');
+            const ctrlRight = this.kite.getPoint('CTRL_DROIT');
+            const handles = this.physicsEngine.getControlBarManager().getHandlePositions(kitePos);
+
+            let leftLineLength = 0;
+            let rightLineLength = 0;
+            if (ctrlLeft && ctrlRight) {
+                const kiteLeftWorld = ctrlLeft.clone();
+                const kiteRightWorld = ctrlRight.clone();
+                this.kite.localToWorld(kiteLeftWorld);
+                this.kite.localToWorld(kiteRightWorld);
+
+                leftLineLength = kiteLeftWorld.distanceTo(handles.left);
+                rightLineLength = kiteRightWorld.distanceTo(handles.right);
+            }
+
+            // Récupérer les warnings
+            const warnings = this.physicsEngine.getKiteController().getWarnings();
+
+            // Construire les indicateurs de warning
+            let warningIndicators = '';
+            if (warnings.accel) {
+                warningIndicators += ` ⚠️A:${warnings.accelValue.toFixed(0)}`;
+            }
+            if (warnings.velocity) {
+                warningIndicators += ` ⚠️V:${warnings.velocityValue.toFixed(0)}`;
+            }
+            if (warnings.angular) {
+                warningIndicators += ' ⚠️Ω';
+            }
+
+            const logMessage =
+                `[Frame ${this.frameCount}] ` +
+                `Window: X:${angleX.toFixed(0)}° Y:${angleY.toFixed(0)}° Z:${distZ.toFixed(1)}m ` +
                 `| Pos: [${kitePos.x.toFixed(1)}, ${kitePos.y.toFixed(1)}, ${kitePos.z.toFixed(1)}] ` +
-                `| Vel: ${state.velocity.length().toFixed(2)}m/s ` +
-                `| Line: ${isTaut ? 'T' : 'S'} ` +
-                `| F(G/D): ${leftMag.toFixed(1)}/${rightMag.toFixed(1)}N (${asymmetry > 0 ? '+' : ''}${asymmetry.toFixed(0)}%)`
-            );
+                `| Vel: ${state.velocity.length().toFixed(1)}m/s ` +
+                `| Wind: ${windSpeed.toFixed(1)}m/s App: ${apparentSpeed.toFixed(1)}m/s ` +
+                `| Aero: ${aeroForceMag.toFixed(0)}N AoA: ${metrics.aoaDeg.toFixed(0)}° ` +
+                `| Bar: ${barDirection}${Math.abs(barRotationDeg)}° ` +
+                `| Lines L:${leftLineLength.toFixed(1)}m R:${rightLineLength.toFixed(1)}m ${isTaut ? '✓' : '○'} ` +
+                `| F(G/D): ${leftMag.toFixed(0)}/${rightMag.toFixed(0)}N (${asymmetry > 0 ? '+' : ''}${asymmetry.toFixed(0)}%)` +
+                warningIndicators;
+
+            // Afficher dans la console seulement toutes les secondes
+            if (this.frameCount % 60 === 0) {
+                console.log(`📊 ${logMessage}`);
+            }
+
+            // Mettre à jour l'interface à 60Hz
+            const logElement = document.getElementById('periodic-log');
+            if (logElement) {
+                // Formater sur plusieurs lignes pour l'interface
+                let htmlMessage = `
+                    <div style="line-height: 1.6;">
+                        <strong>[Frame ${this.frameCount}]</strong><br>
+                        🎯 Fenêtre: X:${angleX.toFixed(0)}° Y:${angleY.toFixed(0)}° | Profondeur Z:${distZ.toFixed(1)}m<br>
+                        📍 Position: [${kitePos.x.toFixed(1)}, ${kitePos.y.toFixed(1)}, ${kitePos.z.toFixed(1)}] | Altitude: ${kitePos.y.toFixed(1)}m | Vel: ${state.velocity.length().toFixed(1)}m/s<br>
+                        🌬️ Vent: ${windSpeed.toFixed(1)}m/s (${(windSpeed * 3.6).toFixed(0)}km/h) | Apparent: ${apparentSpeed.toFixed(1)}m/s<br>
+                        ✈️ Aéro: Force totale ${aeroForceMag.toFixed(0)}N | AoA: ${metrics.aoaDeg.toFixed(0)}°<br>
+                        🎮 Barre: ${barDirection} ${Math.abs(barRotationDeg)}° | Forces G/D: ${leftMag.toFixed(0)}/${rightMag.toFixed(0)}N (${asymmetry > 0 ? '+' : ''}${asymmetry.toFixed(0)}%)<br>
+                        📏 Lignes: G:${leftLineLength.toFixed(1)}m D:${rightLineLength.toFixed(1)}m | Dist: ${distance.toFixed(1)}/${currentLineLength}m (${(distanceRatio * 100).toFixed(0)}%) ${isTaut ? '✅' : '⚠️'}
+                        ${stallWarning ? '<br><strong style="color: #ff6b6b;">' + stallWarning + '</strong>' : ''}
+                        ${warningIndicators ? '<br><span class="warning">' + warningIndicators + '</span>' : ''}
+                    </div>
+                `;
+                logElement.innerHTML = htmlMessage;
+            }
         }
 
         if (this.isPlaying) {
@@ -1772,7 +1963,7 @@ export class SimulationAppV8 {
                 this.inputHandler.update(deltaTime);
                 const targetRotation = this.inputHandler.getTargetBarRotation();
 
-                this.physicsEngine.update(deltaTime, targetRotation);
+                this.physicsEngine.update(deltaTime, targetRotation, false);
                 this.updateControlLines();
                 this.updateDebugArrows();
             } catch (error) {

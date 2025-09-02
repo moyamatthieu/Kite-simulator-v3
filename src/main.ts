@@ -189,12 +189,27 @@ class App {
      */
     private setupModeSelector(): void {
         const simBtn = document.getElementById('mode-simulation');
+        const caoBtn = document.getElementById('mode-cao');
 
         if (simBtn) {
             simBtn.onclick = () => {
-                // Rediriger vers la page de simulation
-                window.location.href = '/simulation.html';
+                // Sauvegarder l'état avant de basculer
+                this.saveState();
+                
+                // Ajouter une transition douce
+                document.body.style.transition = 'opacity 0.3s';
+                document.body.style.opacity = '0';
+                
+                setTimeout(() => {
+                    // Rediriger vers la page de simulation
+                    window.location.href = '/simulation.html';
+                }, 300);
             };
+        }
+        
+        // Le bouton CAO est déjà actif sur cette page
+        if (caoBtn) {
+            caoBtn.classList.add('active');
         }
     }
 

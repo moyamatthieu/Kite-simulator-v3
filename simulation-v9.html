@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mode Simulation - Cerf-volant V9</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #app {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Styles de base pour compatibilité */
+        .physics-debug {
+            display: none;
+        }
+
+        body.debug-mode .physics-debug {
+            display: block;
+        }
+
+        /* Loading spinner */
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #667eea;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            border: 4px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #667eea;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app"></div>
+    
+    <!-- Loading indicator -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Chargement de l'interface moderne...</div>
+    </div>
+
+    <script type="module" src="/src/simulation/simulationLoader.ts"></script>
+    <script type="module">
+        // Import du nouveau système d'interface
+        import { SimulationUI } from '/src/ui/SimulationUI.js';
+        
+        // Configuration de l'interface moderne
+        document.addEventListener('DOMContentLoaded', () => {
+            const appContainer = document.getElementById('app');
+            const loading = document.getElementById('loading');
+            
+            try {
+                // Initialiser le nouveau système d'interface
+                const simulationUI = new SimulationUI(appContainer);
+                
+                // Masquer le loading
+                loading.style.display = 'none';
+                
+                // Fade in au chargement
+                setTimeout(() => {
+                    document.body.style.opacity = '1';
+                }, 100);
+                
+                // Exposer l'interface globalement pour la simulation
+                window.simulationUI = simulationUI;
+                
+                console.log('✅ Interface moderne initialisée avec succès');
+                
+            } catch (error) {
+                console.error('❌ Erreur lors de l\'initialisation de l\'interface:', error);
+                loading.innerHTML = `
+                    <div style="color: #ff6b6b;">
+                        <div>❌ Erreur de chargement</div>
+                        <div style="font-size: 14px; margin-top: 10px;">Vérifiez la console pour plus de détails</div>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+
+</html>
