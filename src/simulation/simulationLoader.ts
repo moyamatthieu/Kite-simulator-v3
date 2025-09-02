@@ -290,8 +290,8 @@ export class SimulationLoader {
             <style>
                 .simulation-selector {
                     position: absolute;
-                    top: 10px;
-                    left: 220px;
+                    bottom: 220px;
+                    left: 10px;
                     background: rgba(0, 0, 0, 0.8);
                     padding: 10px;
                     border-radius: 8px;
