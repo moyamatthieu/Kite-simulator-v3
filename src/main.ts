@@ -55,7 +55,10 @@ class MainApp {
         // 5. Connecter la bibliothèque d'objets
         this.setupObjectLibrary();
 
-        // 6. Pour l'instant, pas de switch de mode automatique
+        // 6. Connecter les boutons de la toolbar
+        this.setupToolbar();
+
+        // 7. Pour l'instant, pas de switch de mode automatique
 
         console.log('✅ Application initialisée avec succès');
     }
@@ -138,7 +141,8 @@ class MainApp {
         if (appName === 'cad') {
             this.panelManager.setLayout('default');
             this.currentApp = new CadApp({
-                container: this.panelManager.getViewportContainer()
+                container: this.panelManager.getViewportContainer(),
+                renderer: this.renderer // Passer le renderer existant
             });
             await (this.currentApp as CadApp).init();
         } else if (appName === 'simulation') {

@@ -11,6 +11,7 @@ import * as THREE from 'three';
 
 export interface CadAppConfig {
     container: HTMLElement;
+    renderer?: ThreeRenderer; // Renderer optionnel - si fourni, on l'utilise
     theme?: 'dark' | 'light' | 'high-contrast';
 }
 
@@ -21,8 +22,6 @@ export class CadApp {
     private renderer!: ThreeRenderer;
     private container: HTMLElement;
     private objectLibraryPanel!: ObjectLibraryPanel;
-    private scene!: THREE.Scene;
-    private camera!: THREE.PerspectiveCamera;
     private config: Required<CadAppConfig>;
 
     // Gestion des objets
@@ -51,36 +50,40 @@ export class CadApp {
             themeManager.setTheme(this.config.theme);
 
             // 2. Initialisation du renderer 3D
-            this.renderer = new ThreeRenderer({
-                canvasContainer: this.container,
-                backgroundColor: '#2a2a3e',
-                fog: false,
-                shadows: true,
-                antialias: true,
-                cameraPosition: [5, 5, 5] // Position plus éloignée
-            });
+            if (this.config.renderer) {
+                // Utiliser le renderer fourni
+                this.renderer = this.config.renderer;
+                console.log('🎨 Utilisation du renderer existant');
+            } else {
+                // Créer un nouveau renderer
+                this.renderer = new ThreeRenderer({
+                    canvasContainer: this.container,
+                    backgroundColor: '#2a2a3e',
+                    fog: false,
+                    shadows: true,
+                    antialias: true,
+                    cameraPosition: [5, 4, 5] // Position appropriée pour voir les objets
+                });
+                console.log('🎨 Nouveau renderer créé');
+            }
 
-            // 3. Références aux composants Three.js
-            this.scene = this.renderer.scene;
-            this.camera = this.renderer.camera;
-
-            // 4. Initialisation de l'AutoLoader pour charger les objets
+            // 3. Initialisation de l'AutoLoader pour charger les objets
             this.autoLoader = new AutoLoader();
 
-            // 5. Configuration de la scène
+            // 4. Configuration de la scène (le renderer gère déjà l'éclairage de base)
             this.setupScene();
 
-            // 6. Initialisation du sélecteur d'objets
+            // 5. Initialisation du sélecteur d'objets
             this.objectLibraryPanel = new ObjectLibraryPanel();
             this.objectLibraryPanel.render();
 
-            // 7. Chargement des catégories d'objets
+            // 6. Chargement des catégories d'objets
             await this.loadObjectCategories();
 
-            // 8. Connexion des événements
+            // 7. Connexion des événements
             this.setupEventListeners();
 
-            // 9. Le renderer démarre automatiquement
+            // 8. Le renderer démarre automatiquement sa boucle
             this.isInitialized = true;
             console.log('✅ CadApp initialisée avec succès');
 
@@ -91,38 +94,17 @@ export class CadApp {
     }
 
     /**
-     * Configuration de base de la scène 3D
+     * Configuration de base de la scène 3D (éclairage supplémentaire uniquement)
      */
     private setupScene(): void {
-        // L'éclairage est déjà configuré par ThreeRenderer
-        // On peut ajouter un éclairage supplémentaire si nécessaire
-
-        // Ajouter une lumière supplémentaire pour mieux voir les objets
-        const additionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        // Le ThreeRenderer gère déjà l'éclairage de base, la grille et les axes
+        // On ajoute seulement un éclairage supplémentaire pour mieux voir les objets
+        
+        const additionalLight = new THREE.DirectionalLight(0xffffff, 0.3);
         additionalLight.position.set(-5, 5, -5);
-        this.scene.add(additionalLight);
+        this.renderer.addToScene(additionalLight);
 
-        // Grille de sol plus visible et plus grande
-        const gridHelper = new THREE.GridHelper(50, 50, 0x666666, 0x333333);
-        this.scene.add(gridHelper);
-
-        // Axes pour l'orientation plus grands
-        const axesHelper = new THREE.AxesHelper(5);
-        this.scene.add(axesHelper);
-
-        // Ajouter un plan de sol pour les ombres
-        const planeGeometry = new THREE.PlaneGeometry(50, 50);
-        const planeMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0x333333, 
-            transparent: true, 
-            opacity: 0.3 
-        });
-        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-        plane.rotation.x = -Math.PI / 2;
-        plane.receiveShadow = true;
-        this.scene.add(plane);
-
-        console.log('✅ Scène CAD configurée avec éclairage amélioré');
+        console.log('✅ Scène CAD configurée avec éclairage supplémentaire');
     }
 
     /**
@@ -162,9 +144,9 @@ export class CadApp {
         try {
             console.log(`📦 Chargement de l'objet: ${objectId}`);
 
-            // Suppression de l'objet actuel
+            // Suppression de l'objet actuel via l'API du renderer
             if (this.currentObject) {
-                this.scene.remove(this.currentObject);
+                this.renderer.removeFromScene(this.currentObject);
                 this.currentObject = null;
             }
 
@@ -175,80 +157,22 @@ export class CadApp {
                 return;
             }
 
+            console.log(`🆕 Nouvelle instance créée: ${objectId}`);
+
             // Positionner l'objet au centre de la scène
             structuredObject.position.set(0, 0, 0);
 
-            // Ajuster l'échelle si l'objet est trop petit
-            this.adjustObjectScale(structuredObject);
-
-            // Ajouter à la scène
-            this.scene.add(structuredObject);
+            // Ajouter à la scène via l'API du renderer
+            this.renderer.addToScene(structuredObject);
             this.currentObject = structuredObject;
 
             // Centrer la caméra sur l'objet
-            this.focusOnObject(structuredObject);
-
-            // Forcer le rendu pour s'assurer que l'objet est visible
-            this.renderer.renderer.render(this.scene, this.camera);
+            this.renderer.focusOn(structuredObject);
 
             console.log(`✅ Objet chargé et centré: ${objectId}`);
 
         } catch (error) {
             console.error(`❌ Erreur lors du chargement de l'objet ${objectId}:`, error);
-        }
-    }
-
-    /**
-     * Centrer la caméra sur un objet
-     */
-    private focusOnObject(object: THREE.Object3D): void {
-        // Calculer la bounding box de l'objet
-        const box = new THREE.Box3().setFromObject(object);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-
-        // Calculer la distance optimale pour la caméra
-        const maxSize = Math.max(size.x, size.y, size.z);
-        const distance = Math.max(maxSize * 2, 5); // Distance minimale de 5 unités
-
-        // Positionner la caméra
-        this.camera.position.set(
-            center.x + distance,
-            center.y + distance * 0.5,
-            center.z + distance
-        );
-
-        // Orienter la caméra vers le centre de l'objet
-        this.camera.lookAt(center);
-
-        // Mettre à jour les contrôles si disponibles
-        if (this.renderer.controls) {
-            this.renderer.controls.target.copy(center);
-            this.renderer.controls.update();
-        }
-
-        console.log(`📷 Caméra centrée sur l'objet - Distance: ${distance.toFixed(2)}`);
-    }
-
-    /**
-     * Ajuster l'échelle d'un objet s'il est trop petit
-     */
-    private adjustObjectScale(object: THREE.Object3D): void {
-        const box = new THREE.Box3().setFromObject(object);
-        const size = box.getSize(new THREE.Vector3());
-        const maxSize = Math.max(size.x, size.y, size.z);
-
-        // Si l'objet est trop petit (< 0.5 unités), l'agrandir
-        if (maxSize < 0.5) {
-            const scale = 0.5 / maxSize;
-            object.scale.setScalar(scale);
-            console.log(`🔍 Objet agrandi - Échelle: ${scale.toFixed(2)}x`);
-        }
-        // Si l'objet est trop grand (> 10 unités), le réduire
-        else if (maxSize > 10) {
-            const scale = 10 / maxSize;
-            object.scale.setScalar(scale);
-            console.log(`🔍 Objet réduit - Échelle: ${scale.toFixed(2)}x`);
         }
     }
 
@@ -261,7 +185,7 @@ export class CadApp {
         }
 
         if (this.currentObject) {
-            this.scene.remove(this.currentObject);
+            this.renderer.removeFromScene(this.currentObject);
         }
 
         this.isInitialized = false;
