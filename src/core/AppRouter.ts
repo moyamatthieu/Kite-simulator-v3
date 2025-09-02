@@ -51,7 +51,7 @@ export class AppRouter {
             title: 'Mode CAO',
             description: 'Conception Assistée par Ordinateur',
             icon: '🛠️',
-            component: () => import('./apps/CadApp.js'),
+            component: () => import('../apps/CadApp.js'),
             layout: 'panels',
             requiredPanels: ['scene-tree', 'properties', 'object-library', 'console']
         });
@@ -61,7 +61,7 @@ export class AppRouter {
             title: 'Mode Simulation',
             description: 'Simulation physique en temps réel',
             icon: '🎮',
-            component: () => import('./apps/SimulationApp.js'),
+            component: () => import('../apps/SimulationApp.js'),
             layout: 'fullscreen',
             requiredPanels: ['console']
         });
@@ -71,7 +71,7 @@ export class AppRouter {
             title: 'Mode Hybride',
             description: 'CAO + Simulation en temps réel',
             icon: '🔄',
-            component: () => import('./apps/HybridApp.js'),
+            component: () => import('../apps/HybridApp.js'),
             layout: 'split',
             requiredPanels: ['scene-tree', 'properties', 'console']
         });

@@ -4,8 +4,8 @@ import { SceneTreePanel } from './ui/panels/SceneTreePanel';
 import { ObjectLibraryPanel } from './ui/panels/ObjectLibraryPanel';
 import { PropertiesPanel } from './ui/panels/PropertiesPanel';
 import { ConsolePanel } from './ui/panels/ConsolePanel';
-import { CadApp } from './apps/CadApp.js';
-import { SimulationApp } from './apps/SimulationApp.js';
+import { CadApp } from './apps/CadApp';
+import { SimulationApp } from './apps/SimulationApp';
 
 class MainApp {
     private renderer!: ThreeRenderer;

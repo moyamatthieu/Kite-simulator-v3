@@ -3,10 +3,10 @@
  * Scène 3D pour visualiser les objets avec sélecteur sur la gauche
  */
 
-import { ThreeRenderer } from '../renderer/ThreeRenderer.js';
-import { ObjectLibraryPanel } from '../ui/panels/ObjectLibraryPanel.js';
-import { themeManager } from '../ui/core/ThemeManager.js';
-import { AutoLoader } from '../core/AutoLoader.js';
+import { ThreeRenderer } from '../renderer/ThreeRenderer';
+import { ObjectLibraryPanel } from '../ui/panels/ObjectLibraryPanel';
+import { themeManager } from '../ui/core/ThemeManager';
+import { AutoLoader } from '../core/AutoLoader';
 import * as THREE from 'three';
 
 export interface CadAppConfig {
