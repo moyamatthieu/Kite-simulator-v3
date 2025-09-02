@@ -97,7 +97,7 @@
             border-bottom: 2px solid rgba(102, 126, 234, 0.3);
             padding-bottom: 8px;
         }
-        
+
         #sim-info div {
             margin: 8px 0;
             display: flex;
@@ -153,8 +153,15 @@
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
         }
 
         /* Panneau de contrôle du vent amélioré */
@@ -247,23 +254,26 @@
         body.debug-mode .physics-debug {
             display: block;
         }
-        
+
         .debug-main {
             margin-bottom: 5px;
         }
-        
+
         .debug-legend {
             font-size: 11px;
             opacity: 0.9;
         }
-        
+
         /* Panneau de version */
         .version-panel {
             position: absolute;
-            bottom: 200px;  /* Plus d'espace avec le panneau d'état */
+            bottom: 200px;
+            /* Plus d'espace avec le panneau d'état */
             left: 10px;
-            width: 450px;   /* Plus large pour éviter la troncature */
-            height: 100px;  /* Plus haut pour tout afficher */
+            width: 450px;
+            /* Plus large pour éviter la troncature */
+            height: 100px;
+            /* Plus haut pour tout afficher */
             padding: 12px 18px;
             background: linear-gradient(135deg, rgba(0, 0, 0, 0.92), rgba(20, 20, 60, 0.92));
             color: #667eea;
@@ -275,29 +285,31 @@
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(102, 126, 234, 0.2);
             overflow: hidden;
         }
-        
+
         .version-content {
             line-height: 1.5;
             color: #8fa4f3;
             text-shadow: 0 0 4px rgba(102, 126, 234, 0.4);
         }
-        
+
         .version-content div {
             margin: 2px 0;
         }
-        
+
         .version-content div:first-child {
             color: #667eea;
             font-weight: bold;
         }
-        
+
         /* Log périodique - État du système */
         .status-log {
             position: absolute;
             bottom: 10px;
             left: 10px;
-            width: 450px;   /* Même largeur que le panneau version */
-            height: 170px;  /* Légèrement plus haut */
+            width: 450px;
+            /* Même largeur que le panneau version */
+            height: 170px;
+            /* Légèrement plus haut */
             padding: 18px;
             background: linear-gradient(135deg, rgba(0, 0, 0, 0.92), rgba(10, 30, 10, 0.92));
             color: #00ff88;
@@ -309,7 +321,7 @@
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 255, 136, 0.15);
             overflow-y: auto;
         }
-        
+
         .log-header {
             font-size: 13px;
             font-weight: bold;
@@ -322,14 +334,14 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         .log-content {
             line-height: 1.5;
             word-break: break-all;
             color: #00ff88;
             text-shadow: 0 0 3px rgba(0, 255, 136, 0.3);
         }
-        
+
         .log-content .warning {
             color: #ffaa00;
         }
@@ -396,7 +408,7 @@
             <span style="color: #ff0000;">● Traînée</span>
         </div>
     </div>
-    
+
     <!-- Panneau de version -->
     <div class="version-panel">
         <div class="log-header">🏷️ Version du simulateur</div>
@@ -407,7 +419,7 @@
             <div>🎯 Amélioration: Interface optimisée et panneaux repositionnés</div>
         </div>
     </div>
-    
+
     <!-- Log périodique -->
     <div class="status-log">
         <div class="log-header">📊 État du système</div>
@@ -426,20 +438,20 @@
     <script type="module" src="/src/simulation/simulationLoader.ts"></script>
     <script type="module">
         // Import du nouveau système d'interface
-        import { SimulationUI } from '/src/ui/SimulationUI.js';
-        
+        import { SimulationUI } from '/src/ui/SimulationUI.ts';
+
         // Configuration de l'interface moderne
         document.addEventListener('DOMContentLoaded', () => {
             const appContainer = document.getElementById('app');
-            
+
             // Initialiser le nouveau système d'interface
             const simulationUI = new SimulationUI(appContainer);
-            
+
             // Fade in au chargement
             setTimeout(() => {
                 document.body.style.opacity = '1';
             }, 100);
-            
+
             // Exposer l'interface globalement pour la simulation
             window.simulationUI = simulationUI;
         });

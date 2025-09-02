@@ -223,7 +223,7 @@ export class SimulationLoader {
     /**
      * Nettoie la simulation actuelle
      */
-    private cleanupCurrentSimulation(): void {
+    public cleanupCurrentSimulation(): void {
         if (this.currentSimulation?.instance) {
             console.log('🧹 Nettoyage de la simulation actuelle...');
 
@@ -458,23 +458,4 @@ export class SimulationLoader {
     }
 }
 
-// Auto-initialisation si lancé directement
-if (typeof window !== 'undefined') {
-    window.addEventListener('DOMContentLoaded', async () => {
-        const container = document.getElementById('app');
-        if (container) {
-            const loader = new SimulationLoader(container);
-
-            // Exposer le loader globalement pour debug
-            (window as any).simulationLoader = loader;
-
-            // Logger les changements
-            loader.onSimulationChanged((info) => {
-                console.log(`🎮 Simulation active: ${info.name}`);
-            });
-
-            // La simulation est déjà chargée dans discoverSimulations()
-            // Pas besoin de la charger à nouveau
-        }
-    });
-}
+// NOTE: SimulationLoader is no longer auto-initialized. Instantiate from App when needed.

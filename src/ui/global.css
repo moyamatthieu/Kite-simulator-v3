@@ -1,0 +1,159 @@
+/* global.css - styles communs pour l'UI (CAO + Simulation) */
+:root {
+    --bg-1: #0f1724;
+    --accent-1: #667eea;
+    --accent-2: #764ba2;
+    --panel-bg: rgba(0, 0, 0, 0.85);
+    --muted: #aaa;
+}
+
+html,
+body,
+#app {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+body {
+    background: var(--bg-1);
+    color: #fff;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity .25s ease-in-out;
+}
+
+#app {
+    position: relative;
+}
+
+/* Mode selector basique partagé */
+.mode-selector {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    z-index: 1100;
+}
+
+.mode-selector label {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.mode-btn {
+    padding: 8px 14px;
+    background: #333;
+    border: 2px solid transparent;
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.mode-btn.active {
+    background: var(--accent-1);
+    border-color: var(--accent-2);
+    box-shadow: 0 0 12px rgba(102, 126, 234, 0.45);
+}
+
+/* Common controls */
+.controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 10px;
+    z-index: 1100;
+}
+
+.controls button {
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent-1);
+    color: #fff;
+    cursor: pointer;
+}
+
+/* Object selector */
+.object-selector {
+    position: absolute;
+    top: 70px;
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 220px;
+    max-height: calc(100vh - 100px);
+    overflow: auto;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--panel-bg);
+    z-index: 1000;
+}
+
+.object-selector .category-label {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-bottom: 4px;
+}
+
+.object-selector button {
+    background: var(--accent-1);
+    border: none;
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* Object info */
+#object-info {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    padding: 14px;
+    background: var(--panel-bg);
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 1000;
+}
+
+#object-info h3 {
+    margin: 0 0 8px 0;
+    color: var(--accent-1);
+}
+
+/* Panels and generic small layout helpers */
+.no-select {
+    user-select: none;
+}
+
+/* small helpers for simulation page differences */
+body.simulation-mode .object-selector,
+body.simulation-mode #explode-btn,
+body.simulation-mode #labels-btn,
+body.simulation-mode #export-godot-btn,
+body.simulation-mode #export-obj-btn {
+    display: none;
+}
+
+/* Keep accessibility focus outlines */
+button:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.12);
+}

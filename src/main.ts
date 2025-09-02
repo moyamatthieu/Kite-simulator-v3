@@ -8,6 +8,9 @@ import { ThreeRenderer } from '@renderer';
 import { GodotExporter, OBJExporter } from '@export';
 import { AutoLoader } from '@core/AutoLoader';
 import { StructuredObject } from '@core/StructuredObject';
+import { SimulationLoader } from './simulation/simulationLoader';
+import { SimulationUI } from './ui/SimulationUI';
+import { MenuBar, VersionInfo } from './ui/MenuBar';
 
 // === Application principale KISS avec Hot Reload automatique ===
 
@@ -19,6 +22,10 @@ class App {
     private isAnimating = false;
     private showingLabels = false;
     private showingDebugPoints = false;
+
+    private simulationLoader: SimulationLoader | null = null;
+    private simulationUI: SimulationUI | null = null;
+    private menuBar: MenuBar | null = null;
 
     constructor() {
         console.log('🚀 Démarrage de CAO KISS v3.0 - avec Car!');
@@ -35,6 +42,23 @@ class App {
 
         // 🎯 Configuration initiale
         this.init();
+
+        // Menu Bar (UI top bar)
+        const appContainer = document.getElementById('app')!;
+        this.menuBar = new MenuBar(document.body, {
+            onModeChange: async (m) => {
+                if (m === 'simulation') await this.enterSimulationMode();
+                else await this.enterCaoMode();
+            },
+            onVersionSelect: async (v) => {
+                // ensure simulation loader exists then load version
+                if (!this.simulationLoader) {
+                    this.simulationLoader = new SimulationLoader(appContainer);
+                    (window as any).simulationLoader = this.simulationLoader;
+                }
+                await this.simulationLoader.loadSimulation(v);
+            }
+        });
 
         // Exposer l'instance globalement
         (window as any).app = this;
@@ -59,7 +83,6 @@ class App {
         }
 
         this.setupControls();
-        this.setupModeSelector();
         this.setupExportButton();
     }
 
@@ -192,24 +215,69 @@ class App {
         const caoBtn = document.getElementById('mode-cao');
 
         if (simBtn) {
-            simBtn.onclick = () => {
-                // Sauvegarder l'état avant de basculer
+            simBtn.onclick = async () => {
                 this.saveState();
-                
-                // Ajouter une transition douce
-                document.body.style.transition = 'opacity 0.3s';
-                document.body.style.opacity = '0';
-                
-                setTimeout(() => {
-                    // Rediriger vers la page de simulation
-                    window.location.href = '/simulation.html';
-                }, 300);
+                await this.enterSimulationMode();
             };
         }
-        
-        // Le bouton CAO est déjà actif sur cette page
+
         if (caoBtn) {
-            caoBtn.classList.add('active');
+            caoBtn.onclick = async () => {
+                this.saveState();
+                await this.enterCaoMode();
+            };
+            // Mark CAO as default active if body not simulation-mode
+            if (!document.body.classList.contains('simulation-mode')) {
+                caoBtn.classList.add('active');
+            }
+        }
+    }
+
+    private async enterSimulationMode(): Promise<void> {
+        document.body.classList.remove('cao-mode');
+        document.body.classList.add('simulation-mode');
+        this.menuBar?.updateModeActive('simulation');
+
+        const appContainer = document.getElementById('app')!;
+        if (!this.simulationUI) {
+            this.simulationUI = new SimulationUI(appContainer, {
+                onModeSwitch: async (m) => {
+                    if (m === 'cao') await this.enterCaoMode();
+                    else await this.enterSimulationMode();
+                }
+            });
+        }
+
+        if (!this.simulationLoader) {
+            this.simulationLoader = new SimulationLoader(appContainer);
+            (window as any).simulationLoader = this.simulationLoader;
+            // populate versions into menubar if available
+            try {
+                const sims = this.simulationLoader.getAvailableSimulations();
+                const versions = sims.map(s => ({ version: s.version, name: s.name, description: s.description } as VersionInfo));
+                this.menuBar?.setVersions(versions);
+                // set active to current loader default
+                const current = this.simulationLoader.getCurrentSimulation();
+                if (current) this.menuBar?.setActiveVersion(current.version);
+            } catch (e) {
+                console.warn('Impossible de récupérer les versions de simulation:', e);
+            }
+        }
+    }
+
+    private async enterCaoMode(): Promise<void> {
+        document.body.classList.remove('simulation-mode');
+        document.body.classList.add('cao-mode');
+        this.menuBar?.updateModeActive('cao');
+
+        // If a simulation is active, attempt cleanup
+        if (this.simulationLoader) {
+            try {
+                // call loader cleanup method if available
+                (this.simulationLoader as any).cleanupCurrentSimulation?.();
+            } catch (e) {
+                console.warn('Erreur cleanup simulation:', e);
+            }
         }
     }
 

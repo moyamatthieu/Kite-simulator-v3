@@ -53,15 +53,20 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
 
 <body>
     <div id="app"></div>
-    
+
     <!-- Loading indicator -->
     <div class="loading" id="loading">
         <div class="spinner"></div>
@@ -71,30 +76,30 @@
     <script type="module" src="/src/simulation/simulationLoader.ts"></script>
     <script type="module">
         // Import du nouveau système d'interface
-        import { SimulationUI } from '/src/ui/SimulationUI.js';
-        
+        import { SimulationUI } from '/src/ui/SimulationUI.ts';
+
         // Configuration de l'interface moderne
         document.addEventListener('DOMContentLoaded', () => {
             const appContainer = document.getElementById('app');
             const loading = document.getElementById('loading');
-            
+
             try {
                 // Initialiser le nouveau système d'interface
                 const simulationUI = new SimulationUI(appContainer);
-                
+
                 // Masquer le loading
                 loading.style.display = 'none';
-                
+
                 // Fade in au chargement
                 setTimeout(() => {
                     document.body.style.opacity = '1';
                 }, 100);
-                
+
                 // Exposer l'interface globalement pour la simulation
                 window.simulationUI = simulationUI;
-                
+
                 console.log('✅ Interface moderne initialisée avec succès');
-                
+
             } catch (error) {
                 console.error('❌ Erreur lors de l\'initialisation de l\'interface:', error);
                 loading.innerHTML = `

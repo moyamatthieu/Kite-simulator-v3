@@ -15,13 +15,13 @@ export default defineConfig({
       '@types': resolve(__dirname, 'src/types'),
       '@export': resolve(__dirname, 'src/export/index'),
       '@ui': resolve(__dirname, 'src/ui'),
-      
+
       // 🏭 Factories par métier  
       '@factories/furniture': resolve(__dirname, 'src/factories/FurnitureFactory'),
       '@factories/shapes': resolve(__dirname, 'src/factories/ShapesFactory'),
       '@factories/mechanical': resolve(__dirname, 'src/factories/MechanicalFactory'),
       '@factories/organic': resolve(__dirname, 'src/factories/OrganicFactory'),
-      
+
       // 📦 Objets par catégorie
       '@objects/furniture': resolve(__dirname, 'src/objects/furniture'),
       '@objects/shapes': resolve(__dirname, 'src/objects/shapes'),

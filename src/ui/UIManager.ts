@@ -169,10 +169,10 @@ export class UIManager {
 
         this.panels.set(config.id, instance);
         this.container.appendChild(panel);
-        
+
         // Calculer et appliquer la position
         this.repositionAllPanels();
-        
+
         return instance;
     }
 
@@ -183,18 +183,18 @@ export class UIManager {
         const panel = document.createElement('div');
         panel.className = `ui-panel ${config.className || ''}`;
         panel.id = config.id;
-        
+
         // En-tête
         const header = document.createElement('div');
         header.className = 'ui-panel-header';
-        
+
         const title = document.createElement('span');
         title.className = 'ui-panel-title';
         title.textContent = config.title;
-        
+
         const controls = document.createElement('div');
         controls.className = 'ui-panel-controls';
-        
+
         // Bouton de réduction/expansion
         if (config.collapsible !== false) {
             const collapseBtn = document.createElement('button');
@@ -203,30 +203,30 @@ export class UIManager {
             collapseBtn.onclick = () => this.togglePanel(config.id);
             controls.appendChild(collapseBtn);
         }
-        
+
         header.appendChild(title);
         header.appendChild(controls);
-        
+
         // Contenu
         const content = document.createElement('div');
         content.className = 'ui-panel-content';
-        
+
         if (typeof config.content === 'string') {
             content.innerHTML = config.content;
         } else if (config.content instanceof HTMLElement) {
             content.appendChild(config.content);
         }
-        
+
         panel.appendChild(header);
         panel.appendChild(content);
-        
+
         // Définir les dimensions
         panel.style.width = `${config.width}px`;
         panel.style.height = `${config.height}px`;
-        
+
         // Rendre déplaçable
         this.makeDraggable(panel, header);
-        
+
         return panel;
     }
 
@@ -276,34 +276,34 @@ export class UIManager {
                     panel.actualPosition = { x: currentX, y: currentY };
                     currentY += height + this.PANEL_MARGIN;
                     break;
-                    
+
                 case 'top-right':
-                    panel.actualPosition = { 
-                        x: containerRect.width - width - currentX, 
-                        y: currentY 
+                    panel.actualPosition = {
+                        x: containerRect.width - width - currentX,
+                        y: currentY
                     };
                     currentY += height + this.PANEL_MARGIN;
                     break;
-                    
+
                 case 'bottom-left':
-                    panel.actualPosition = { 
-                        x: currentX, 
-                        y: containerRect.height - height - currentY 
+                    panel.actualPosition = {
+                        x: currentX,
+                        y: containerRect.height - height - currentY
                     };
                     currentY += height + this.PANEL_MARGIN;
                     break;
-                    
+
                 case 'bottom-right':
-                    panel.actualPosition = { 
-                        x: containerRect.width - width - currentX, 
-                        y: containerRect.height - height - currentY 
+                    panel.actualPosition = {
+                        x: containerRect.width - width - currentX,
+                        y: containerRect.height - height - currentY
                     };
                     currentY += height + this.PANEL_MARGIN;
                     break;
-                    
+
                 case 'center':
-                    panel.actualPosition = { 
-                        x: (containerRect.width - width) / 2, 
+                    panel.actualPosition = {
+                        x: (containerRect.width - width) / 2,
                         y: (containerRect.height - height) / 2 + (index * 50)
                     };
                     break;
@@ -331,17 +331,17 @@ export class UIManager {
             startY = e.clientY;
             startLeft = parseInt(panel.style.left) || 0;
             startTop = parseInt(panel.style.top) || 0;
-            
+
             panel.style.zIndex = '2000';
             document.body.style.cursor = 'grabbing';
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            
+
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
-            
+
             panel.style.left = `${startLeft + deltaX}px`;
             panel.style.top = `${startTop + deltaY}px`;
         });
@@ -364,7 +364,7 @@ export class UIManager {
 
         panel.isCollapsed = !panel.isCollapsed;
         panel.element.classList.toggle('collapsed', panel.isCollapsed);
-        
+
         const btn = panel.element.querySelector('.ui-panel-btn') as HTMLElement;
         if (btn) {
             btn.innerHTML = panel.isCollapsed ? '+' : '−';

@@ -3,15 +3,18 @@
  * Utilise le UIManager pour organiser intelligemment tous les panneaux
  */
 
-import { UIManager, PanelConfig } from './UIManager.js';
+import { UIManager, PanelConfig } from './UIManager';
 
 export class SimulationUI {
     private uiManager: UIManager;
     private updateCallbacks: Map<string, () => void> = new Map();
     private isInitialized = false;
 
-    constructor(container: HTMLElement) {
+    private onModeSwitch?: (mode: 'cao' | 'simulation') => void;
+
+    constructor(container: HTMLElement, opts?: { onModeSwitch?: (mode: 'cao' | 'simulation') => void }) {
         this.uiManager = new UIManager(container);
+        if (opts && opts.onModeSwitch) this.onModeSwitch = opts.onModeSwitch;
         this.initializePanels();
         this.setupEventListeners();
         this.isInitialized = true;
@@ -225,7 +228,7 @@ export class SimulationUI {
             `
         };
         this.uiManager.createPanel(config);
-        
+
         // Masquer par défaut
         const panel = this.uiManager.getPanel('debug-panel');
         if (panel) {
@@ -237,63 +240,8 @@ export class SimulationUI {
      * Sélecteur de mode en haut
      */
     private createModeSelector(): void {
-        const selector = document.createElement('div');
-        selector.innerHTML = `
-            <div style="display: flex; gap: 12px; align-items: center;">
-                <label style="color: #aaa; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">MODE:</label>
-                <button id="mode-cao" style="
-                    padding: 10px 18px; 
-                    background: #444; 
-                    border: 2px solid transparent; 
-                    color: white; 
-                    border-radius: 6px; 
-                    cursor: pointer; 
-                    font-size: 13px; 
-                    transition: all 0.3s;
-                    min-width: 80px;
-                ">CAO</button>
-                <button id="mode-simulation" style="
-                    padding: 10px 18px; 
-                    background: #667eea; 
-                    border: 2px solid #764ba2; 
-                    color: white; 
-                    border-radius: 6px; 
-                    cursor: pointer; 
-                    font-size: 13px; 
-                    transition: all 0.3s;
-                    min-width: 80px;
-                    box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
-                ">Simulation</button>
-            </div>
-        `;
-
-        const config: PanelConfig = {
-            id: 'mode-selector',
-            title: '',
-            width: 300,
-            height: 50,
-            position: 'top-left',
-            priority: 10,
-            content: selector,
-            className: 'no-header'
-        };
-        
-        const panel = this.uiManager.createPanel(config);
-        
-        // Masquer l'en-tête pour ce panneau
-        const header = panel.element.querySelector('.ui-panel-header') as HTMLElement;
-        if (header) {
-            header.style.display = 'none';
-        }
-        
-        // Ajuster la hauteur du contenu
-        const content = panel.element.querySelector('.ui-panel-content') as HTMLElement;
-        if (content) {
-            content.style.height = '100%';
-            content.style.display = 'flex';
-            content.style.alignItems = 'center';
-            content.style.justifyContent = 'center';
-        }
+        // This is now handled by the global MenuBar, but we can leave a placeholder or specific styles if needed.
+        // The actual mode switching logic is passed via callback from the main App instance.
     }
 
     /**
@@ -305,15 +253,18 @@ export class SimulationUI {
             this.uiManager.resize();
         });
 
-        // Mode CAO
+        // Mode switch buttons inside the panels
         document.addEventListener('click', (e) => {
             const target = e.target as HTMLElement;
+            if (!target) return;
+
             if (target.id === 'mode-cao') {
-                document.body.style.transition = 'opacity 0.3s';
-                document.body.style.opacity = '0';
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 300);
+                // In SPA we call the callback when available
+                if (this.onModeSwitch) this.onModeSwitch('cao');
+            }
+
+            if (target.id === 'mode-simulation') {
+                if (this.onModeSwitch) this.onModeSwitch('simulation');
             }
         });
     }

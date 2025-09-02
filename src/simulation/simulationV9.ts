@@ -2634,7 +2634,7 @@ export class SimulationAppV9 {
      */
     private setupModernUICallbacks(): void {
         const ui = (window as any).simulationUI;
-        
+
         // Configurer les événements des contrôles
         setTimeout(() => {
             // Reset button
@@ -3439,7 +3439,7 @@ export class SimulationAppV9 {
                 if (typeof window !== 'undefined' && (window as any).simulationUI) {
                     const ui = (window as any).simulationUI;
                     const fps = Math.round(1 / this.clock.getDelta());
-                    
+
                     ui.updateRealTimeValues({
                         fps: fps,
                         windSpeed: Math.round(windSpeed * 3.6), // Conversion m/s -> km/h
