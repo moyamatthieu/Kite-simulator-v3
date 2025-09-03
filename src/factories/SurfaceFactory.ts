@@ -1,14 +1,14 @@
 /**
  * SurfaceFactory.ts - Factory pour créer des surfaces et toiles
  * 
- * Pattern actuel KISS : Points → Triangles pour surfaces
- * Compatible avec buildSurfaces() de StructuredObject
+ * Utilise le pattern Builder pour construire des surfaces, compatible avec buildSurfaces() de StructuredObject.
  */
 
 import { BaseFactory, FactoryParams } from '@base/BaseFactory';
 import { StructuredObject } from '@core/StructuredObject';
-import { ICreatable } from '@types';
+import { ICreatable, Position3D } from '@/types'; // Import de Position3D
 import * as THREE from 'three';
+import { IStructuredObjectBuilder, IStructuredObjectContext } from '@core/DynamicStructuredObject';
 
 export interface SurfaceParams extends FactoryParams {
   points?: Array<[string, number[]]>;  // Points nommés pour la surface
@@ -25,15 +25,6 @@ export interface SurfaceParams extends FactoryParams {
 
 /**
  * Factory pour créer des surfaces tendues
- * 
- * TODO: Questions pour évolution future
- * - [ ] Implémenter subdivision de surfaces pour plus de détail ? non 
- * - [ ] Ajouter simulation de tension/déformation ? non
- * - [ ] Supporter surfaces courbes (NURBS simplifiées) ? non
- * - [ ] Calculer automatiquement la triangulation optimale ?
- * - [ ] Ajouter textures procédurales (tissage, ripstop) ? non pas pour l'instant
- * - [ ] Gérer les plis et déformations ? non pas pourl'instant
- * 
  */
 export class SurfaceFactory extends BaseFactory<StructuredObject & ICreatable> {
   protected metadata = {
@@ -52,43 +43,37 @@ export class SurfaceFactory extends BaseFactory<StructuredObject & ICreatable> {
         color: '#ff0000',
         opacity: 0.9,
         transparent: true,
-        doubleSided: true  // Par défaut, visible des deux côtés
+        doubleSided: true
       },
       tension: 1.0
     };
   }
 
-  createObject(params?: SurfaceParams): StructuredObject & ICreatable {
+  protected createBuilder(params: SurfaceParams): IStructuredObjectBuilder {
     const mergedParams = this.mergeParams(params) as SurfaceParams;
-    
-    class SurfaceObject extends StructuredObject implements ICreatable {
-      constructor() {
-        super("Surface", false);
-      }
-      
-      protected definePoints(): void {
-        // Ajouter les points fournis
+    const factoryMetadata = this.metadata;
+
+    return {
+      definePoints(context: IStructuredObjectContext): void {
         if (mergedParams.points) {
-          mergedParams.points.forEach(([name, position]) => {
-            this.setPoint(name, position as [number, number, number]);
+          mergedParams.points.forEach(([name, positionalArray]) => {
+            context.setPoint(name, positionalArray as Position3D);
           });
         }
-      }
-      
-      protected buildStructure(): void {
+      },
+
+      buildStructure(context: IStructuredObjectContext): void {
         // Pas de structure pour une surface pure
-      }
-      
-      protected buildSurfaces(): void {
+      },
+
+      buildSurfaces(context: IStructuredObjectContext): void {
         // Créer les panneaux de surface
         if (mergedParams.panels) {
           mergedParams.panels.forEach(panel => {
-            // Convertir doubleSided en THREE.Side
             const mat = mergedParams.material || {};
             const side = mat.doubleSided !== false ? THREE.DoubleSide : THREE.FrontSide;
-            
-            // Chaque panneau est un triangle (3 points) ou quad (4 points)
-            this.addSurfaceBetweenPoints(panel, {
+
+            context.addSurfaceBetweenPoints(panel, {
               color: mat.color || '#ff0000',
               opacity: mat.opacity !== undefined ? mat.opacity : 0.9,
               transparent: mat.transparent !== false,
@@ -96,38 +81,11 @@ export class SurfaceFactory extends BaseFactory<StructuredObject & ICreatable> {
             });
           });
         }
-      }
-      
-      // Implémentation ICreatable
-      create(): this { return this; }
-      getName(): string { return 'Surface'; }
-      getDescription(): string { return 'Surface tendue'; }
+      },
+
+      getName(): string { return factoryMetadata.name; }, // Utilise les métadonnées capturées de la factory
+      getDescription(): string { return factoryMetadata.description; }, // Utilise les métadonnées capturées de la factory
       getPrimitiveCount(): number { return (mergedParams.panels || []).length; }
-    }
-    
-    const surface = new SurfaceObject();
-    surface.init();
-    return surface;
+    };
   }
 }
-
-/**
- * TODO: Méthodes utilitaires à considérer
- * 
- * - createTensileStructure() : Structure tendue complexe
- * - createMembrane() : Membrane avec propriétés physiques
- * - subdivide() : Subdivision pour plus de détail
- * - applyTension() : Appliquer tension réaliste
- * - createRipstopPattern() : Motif ripstop pour cerfs-volants
- * - calculateStress() : Distribution des contraintes
- */
-
-/**
- * NOTE: Pattern actuel qui fonctionne bien
- * 
- * 1. Définir les points anatomiques
- * 2. Créer des triangles entre 3 points
- * 3. Utiliser DoubleSide pour visibilité
- * 
- * C'est simple et efficace pour les besoins actuels !
- */

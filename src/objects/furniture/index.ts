@@ -2,7 +2,7 @@
  * Furniture objects exports
  */
 
-export { Chair } from './Chair';
-export { ModularChair } from './ModularChair';
-export { SimpleChair } from './SimpleChair';
-export { Table } from './Table';
+export { ChairFactory } from '@factories/ChairFactory';
+export { ModularChairFactory } from '@factories/ModularChairFactory';
+export { SimpleChairFactory } from '@factories/SimpleChairFactory';
+export { FurnitureTableFactory } from '@factories/FurnitureTableFactory';

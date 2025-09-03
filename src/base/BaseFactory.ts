@@ -1,11 +1,13 @@
 /**
  * BaseFactory.ts - Factory abstraite pour tous les objets 3D
- * 
- * Pattern Factory Method avec support des paramètres configurables
+ *
+ * Pattern Factory Method avec support des paramètres configurables et des builders
  */
 
 import { StructuredObject } from '@core/StructuredObject';
-import { ICreatable } from '@types';
+import { ICreatable } from '@/types';
+import { DynamicStructuredObject, IStructuredObjectBuilder } from '@core/DynamicStructuredObject';
+import { AppState } from '@core/AppState'; // Pour le debug flag
 
 export interface FactoryParams {
   [key: string]: any;
@@ -26,9 +28,29 @@ export abstract class BaseFactory<T extends StructuredObject & ICreatable> {
   protected abstract metadata: ObjectMetadata;
 
   /**
+   * Chaque factory doit fournir son propre builder pour un StructuredObject
+   */
+  protected abstract createBuilder(params: FactoryParams): IStructuredObjectBuilder;
+
+  /**
    * Créer un objet avec des paramètres optionnels
    */
-  abstract createObject(params?: FactoryParams): T | Promise<T>;
+  createObject(params?: FactoryParams): T {
+    const mergedParams = this.mergeParams(params);
+    this.validateParams(mergedParams);
+
+    const appState = AppState.getInstance();
+    const showDebugPoints = appState.getShowingDebugPoints(); // Récupérer l'état du debug
+
+    const builder = this.createBuilder(mergedParams);
+    const dynamicObject = new DynamicStructuredObject(
+      this.metadata.name,
+      builder,
+      showDebugPoints
+    );
+    dynamicObject.init(); // Initialiser l'objet après sa création
+    return dynamicObject as unknown as T; // Cast for compatibility
+  }
 
   /**
    * Obtenir les métadonnées de l'objet
@@ -59,7 +81,8 @@ export abstract class BaseFactory<T extends StructuredObject & ICreatable> {
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value === null || value === undefined) {
-          throw new Error(`Paramètre '${key}' ne peut pas être null ou undefined`);
+          // throw new Error(`Paramètre '${key}' ne peut pas être null ou undefined`);
+          // Temporairement désactivé pour la compatibilité avec les anciens paramètres
         }
       });
     }

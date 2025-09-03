@@ -1,29 +1,44 @@
 /**
- * SimulationV10.ts — Version modulaire
+ * `SimulationV10.ts` - Version modulaire de l'application de simulation de kite.
+ *
+ * Ce fichier est le point d'entrée principal de la simulation. Il orchestre
+ * l'initialisation et la gestion de tous les composants de simulation, y compris
+ * le rendu 3D, la physique, le vent, les entrées utilisateur et l'interface utilisateur.
+ * Il applique des principes de modularité en utilisant des classes dédiées pour
+ * chaque aspect de la simulation.
  */
 
 import * as THREE from 'three';
-import { RenderManager } from '@simulation/simu_V10/render';
-import { WindSimulator } from '@simulation/simu_V10/wind';
-import { InputHandler } from '@simulation/simu_V10/input';
-import { ControlBarManager } from '@simulation/simu_V10/control';
-import { LineSystem } from '@simulation/simu_V10/lines';
-import { PhysicsEngine } from '@simulation/simu_V10/engine';
-import { defaultParams } from '@simulation/simu_V10/constants';
-import { Environment } from '@simulation/simu_V10/environment';
-import { Pilot3D } from '@simulation/simu_V10/pilot';
-import { ControlBar3D } from '@simulation/simu_V10/control_bar';
-import { DebugVectors } from '@simulation/simu_V10/debug';
-import { FlightAnalyzer } from '@simulation/simu_V10/analysis/FlightAnalyzer';
-import { DebugOverlay, VectorLegend } from '@simulation/simu_V10/debug_overlay';
-import { Kite2 } from '@objects/organic/Kite2';
+import { RenderManager } from '@/simulation/render';
+import { WindSimulator } from '@/simulation/wind';
+import { InputHandler } from '@/simulation/input';
+import { ControlBarManager } from '@/simulation/control';
+import { LineSystem } from '@/simulation/lines';
+import { PhysicsEngine } from '@/simulation/engine';
+import { Environment } from '@/simulation/environment';
+import { Pilot3D } from '@/simulation/pilot';
+import { ControlBar3D } from '@/simulation/control_bar';
+import { DebugVectors } from '@/simulation/debug';
+import { FlightAnalyzer } from '@/simulation/analysis/FlightAnalyzer';
+import { Kite } from '@objects/organic/Kite';
+import { CONFIG } from '@/simulation/config/SimulationConfig';
+import { PhysicsConstants } from '@/simulation/physics/PhysicsConstants';
+import { KiteGeometry } from '@/simulation/data/KiteGeometry';
+import { SimulationUIManager } from '@/simulation/ui/SimulationUIManager';
 
-export const UI_MODULE_PATH = '/src/simulation/simu_V10/ui/SimulationUI.ts';
+// --- Constantes de la simulation ---
+const INITIAL_KITE_Y_HEIGHT = 7; // Hauteur initiale du kite en mètres au-dessus du sol
+const INITIAL_KITE_HORIZONTAL_FACTOR = 0.95; // Facteur de la distance horizontale par rapport à la longueur des lignes
 
+/**
+ * @class SimulationAppV10
+ * @description Classe principale qui orchestre tous les modules de la simulation V10:
+ *              rendu, vent, entrée utilisateur, contrôle, physique, UI, debug, etc.
+ *              Elle gère le cycle de vie de la simulation, de l'initialisation au rendu.
+ */
 export class SimulationAppV10 {
   private container: HTMLElement;
-  // Exposé pour le loader: doit ressembler à un WebGLRenderer
-  public renderer: THREE.WebGLRenderer;
+  public renderer: THREE.WebGLRenderer; // Exposé pour le loader
   private rm: RenderManager;
   private wind: WindSimulator;
   private input: InputHandler;
@@ -33,28 +48,28 @@ export class SimulationAppV10 {
   private bar: ControlBar3D;
   private lines: LineSystem;
   private engine: PhysicsEngine;
-  private kite: THREE.Object3D;
+  private kite: Kite; // Utilise la classe Kite typée
   private running = true;
   private lastTime = performance.now();
-  private debugVisible = true; // Debug activé par défaut comme V8
-  private fpsSMA = 60;
+  private debugVisible = CONFIG.get('debug').startVisible; // Utilise la config pour l'état initial du debug
+  private fpsSMA = 60; // Moyenne mobile simple (Simple Moving Average) pour le calcul des FPS
   private rafId: number | null = null;
-  private baseLineLength = 15; // m
-  private lineK = 150; // raideur augmentée comme V8 (25000 / 150 = ratio adapté)
-  private lineElasticity = 0.005; // Élasticité réduite pour plus de stabilité
-  private leftTension = 0;
-  private rightTension = 0;
   private debugVectors: DebugVectors;
   private flightAnalyzer: FlightAnalyzer;
-  private debugOverlay: DebugOverlay;
-  private vectorLegend: VectorLegend;
+  private uiManager: SimulationUIManager; // Instance du nouveau gestionnaire d'UI
 
+  /**
+   * Crée une instance de SimulationAppV10.
+   * @param {HTMLElement} [container=document.getElementById('app') as HTMLElement] - L'élément DOM
+   *        dans lequel la simulation sera rendue et l'UI affichée.
+   */
   constructor(container: HTMLElement = document.getElementById('app') as HTMLElement) {
     this.container = container;
+
+    // Initialisation des gestionnaires de bas niveau
     this.rm = new RenderManager(this.container);
-    this.renderer = this.rm.renderer;
-    // V8 : defaultParams.windSpeed est en km/h, convertir en m/s
-    this.wind = new WindSimulator(defaultParams.windSpeed / 3.6, defaultParams.windDirectionDeg);
+    this.renderer = this.rm.renderer; // Expose le renderer pour une utilisation externe si nécessaire
+    this.wind = new WindSimulator(); // WindSimulator gère maintenant sa config interne
     this.input = new InputHandler();
     this.control = new ControlBarManager();
     this.environment = new Environment();
@@ -63,75 +78,160 @@ export class SimulationAppV10 {
     this.lines = new LineSystem();
     this.debugVectors = new DebugVectors();
     this.flightAnalyzer = new FlightAnalyzer();
-    this.debugOverlay = new DebugOverlay();
-    this.vectorLegend = new VectorLegend();
+    this.uiManager = SimulationUIManager.getInstance(this.container); // Obtient l'instance du gestionnaire d'UI
+
+    // Configure la visibilité des éléments de debug via l'UI Manager
+    this.uiManager.toggleDebugInfoPanel(this.debugVisible);
+    this.uiManager.toggleDebugLegend(this.debugVisible);
     this.debugVectors.setVisible(this.debugVisible);
-    this.debugOverlay.setVisible(this.debugVisible);
-    this.vectorLegend.setVisible(this.debugVisible);
 
-    // Objet Kite avec position initiale calculée comme V8
-    this.kite = new Kite2({ sailColor: '#ff5555' });
+    // Initialisation du Kite
+    this.kite = new Kite({ sailColor: CONFIG.get('kite').defaultColor });
 
-    // Position initiale V8 : calculée géométriquement
+    // Calcul de la position initiale du kite (basé sur la géométrie du pilote et les lignes)
     const pilotPos = this.pilot.object3d.position.clone();
-    const kiteY = 7; // Hauteur V8 éprouvée
-    const initialDistance = this.baseLineLength * 0.95;
-    const dy = kiteY - pilotPos.y;
-    const horizontal = Math.max(0.1, Math.sqrt(Math.max(0, initialDistance * initialDistance - dy * dy)));
+    const initialLineLength = CONFIG.get('lines').defaultLength;
+    const dy = INITIAL_KITE_Y_HEIGHT - pilotPos.y;
+    // Utilise Phytagore pour trouver la distance horizontale si les lignes sont tendues
+    const horizontalDistance = Math.max(
+      PhysicsConstants.EPSILON, // S'assure que la distance n'est jamais nulle ou négative
+      Math.sqrt(Math.max(0, initialLineLength * initialLineLength - dy * dy)) * INITIAL_KITE_HORIZONTAL_FACTOR
+    );
 
-    this.kite.position.set(pilotPos.x, kiteY, pilotPos.z - horizontal);
+    this.kite.position.set(pilotPos.x, INITIAL_KITE_Y_HEIGHT, pilotPos.z - horizontalDistance);
     this.kite.rotation.set(0, 0, 0);
     this.kite.quaternion.identity();
 
-    // Moteur
+    // Moteur physique, initialisé avec les données de configuration des lignes
     this.engine = new PhysicsEngine(this.wind);
+    this.engine.setLineLength(initialLineLength); // Assigne la longueur des lignes au moteur physique
 
-    // Scène
+    // Ajout des objets à la scène Three.js
     this.rm.scene.add(this.environment.object3d);
     this.rm.scene.add(this.kite);
     this.rm.scene.add(this.pilot.object3d);
     this.rm.scene.add(this.bar.object3d);
     this.rm.scene.add(this.lines.object3d);
-    this.rm.scene.add(this.debugVectors.object3d as THREE.Object3D);
+    this.rm.scene.add(this.debugVectors.object3d as THREE.Object3D); // Cast pour compatibilité
 
-    // Positionner la barre aux mains du pilote (pilote à 1,0,0 + hauteur des mains)
+    // Positionne la barre de contrôle aux mains du pilote (le pilote est à 1,0,0 + hauteur des mains)
     const pilotPosition = this.pilot.object3d.position.clone();
-    this.bar.object3d.position.set(pilotPosition.x, pilotPosition.y + 1.4, pilotPosition.z);
+    this.bar.object3d.position.set(pilotPosition.x, CONFIG.get('control').barHeight, pilotPosition.z);
 
+    // Établit les écouteurs d'événements UI
+    this.setupUIEventListeners();
+
+    // Lance la boucle de simulation
     this.loop();
-    this.wireUI();
-    window.addEventListener('simulation-ui-ready', () => this.wireUI(), { once: true });
+  }
+
+  /**
+   * Crée une instance de SimulationAppV10.
+   * @param {HTMLElement} [container=document.getElementById('app') as HTMLElement] - L'élément DOM
+   *        dans lequel la simulation sera rendue et l'UI affichée.
+   */
+  constructor(container: HTMLElement = document.getElementById('app') as HTMLElement) {
+    this.container = container;
+
+    // Initialisation des gestionnaires de bas niveau
+    this.rm = new RenderManager(this.container);
+    this.renderer = this.rm.renderer; // Expose le renderer pour une utilisation externe si nécessaire
+    this.wind = new WindSimulator(); // WindSimulator gère maintenant sa config interne
+    this.input = new InputHandler();
+    this.control = new ControlBarManager();
+    this.environment = new Environment();
+    this.pilot = new Pilot3D();
+    this.bar = new ControlBar3D();
+    this.lines = new LineSystem();
+    this.debugVectors = new DebugVectors();
+    this.flightAnalyzer = new FlightAnalyzer();
+    this.uiManager = SimulationUIManager.getInstance(this.container); // Obtient l'instance du gestionnaire d'UI
+
+    // Configure la visibilité des éléments de debug via l'UI Manager
+    this.uiManager.toggleDebugInfoPanel(this.debugVisible);
+    this.uiManager.toggleDebugLegend(this.debugVisible);
+    this.debugVectors.setVisible(this.debugVisible);
+
+    // Initialisation du Kite
+    this.kite = new Kite({ sailColor: CONFIG.get('kite').defaultColor });
+
+    // Calcul de la position initiale du kite (basé sur la géométrie du pilote et les lignes)
+    const pilotPos = this.pilot.object3d.position.clone();
+    const initialLineLength = CONFIG.get('lines').defaultLength;
+    const dy = INITIAL_KITE_Y_HEIGHT - pilotPos.y;
+    // Utilise Phytagore pour trouver la distance horizontale si les lignes sont tendues
+    const horizontalDistance = Math.max(
+      PhysicsConstants.EPSILON, // S'assure que la distance n'est jamais nulle ou négative
+      Math.sqrt(Math.max(0, initialLineLength * initialLineLength - dy * dy)) * INITIAL_KITE_HORIZONTAL_FACTOR
+    );
+
+    this.kite.position.set(pilotPos.x, INITIAL_KITE_Y_HEIGHT, pilotPos.z - horizontalDistance);
+    this.kite.rotation.set(0, 0, 0);
+    this.kite.quaternion.identity();
+
+    // Moteur physique, initialisé avec les données de configuration des lignes
+    this.engine = new PhysicsEngine(
+      this.wind,
+      CONFIG.get('physics'),
+      CONFIG.get('kite'),
+      CONFIG.get('lines')
+    );
+    this.engine.setLineLength(initialLineLength); // Assigne la longueur des lignes au moteur physique
+
+    // Ajout des objets à la scène Three.js
+    this.rm.scene.add(this.environment.object3d);
+    this.rm.scene.add(this.kite);
+    this.rm.scene.add(this.pilot.object3d);
+    this.rm.scene.add(this.bar.object3d);
+    this.rm.scene.add(this.lines.object3d);
+    this.rm.scene.add(this.debugVectors.object3d as THREE.Object3D); // Cast pour compatibilité
+
+    // Positionne la barre de contrôle aux mains du pilote (le pilote est à 1,0,0 + hauteur des mains)
+    const pilotPosition = this.pilot.object3d.position.clone();
+    this.bar.object3d.position.set(pilotPosition.x, CONFIG.get('control').barHeight, pilotPosition.z);
+
+    // Établit les écouteurs d'événements UI
+    this.setupUIEventListeners();
+
+    // Lance la boucle de simulation
+    this.loop();
   }
 
   private loop = () => {
     if (!this.running) return;
     const now = performance.now();
-    const dt = Math.min(0.05, (now - this.lastTime) / 1000);
+    // Limite le delta temps pour éviter les instabilités physiques lors de ralentissements
+    const dt = Math.min(CONFIG.get('physics').maxDeltaTime, (now - this.lastTime) / 1000);
     this.lastTime = now;
 
-    // Mise à jour vent
+    // Mise à jour du vent
     this.wind.update(dt);
 
-    // Contrôles smooth (inspiré de V9)
-    this.control.setTargetTilt(this.input.steer); // Définit la valeur cible
-    this.control.update(dt); // Met à jour avec lissage et retour au centre
+    // Mise à jour des contrôles (lissage et retour au centre)
+    this.control.setTargetTilt(this.input.steer);
+    this.control.update(dt);
     this.bar.updateTilt(this.control.tilt);
 
-    // Lignes: positions des poignées (handles) pour les contraintes
-    const leftBar = new THREE.Vector3();
-    const rightBar = new THREE.Vector3();
-    this.bar.getLeftWorldPosition(leftBar);
-    this.bar.getRightWorldPosition(rightBar);
-    const leftHandle = leftBar.clone();
-    const rightHandle = rightBar.clone();
+    // Récupération des positions des poignées de la barre de contrôle pour les contraintes de ligne
+    const leftBarHandlePos = new THREE.Vector3();
+    const rightBarHandlePos = new THREE.Vector3();
+    this.bar.getLeftWorldPosition(leftBarHandlePos);
+    this.bar.getRightWorldPosition(rightBarHandlePos);
 
-    // PHYSIQUE (PBD + Aéro) — les contraintes gèrent les longueurs asymétriques
-    const metrics = this.engine.step(dt, this.kite, { steer: this.control.tilt }, { left: leftHandle, right: rightHandle });
+    // Étape de la physique (PBD + Aérodynamique)
+    // Les métriques incluent les tensions des lignes, l'AoA, le facteur de décrochage, etc.
+    const metrics = this.engine.step(
+      dt,
+      this.kite,
+      { steer: this.control.tilt },
+      { left: leftBarHandlePos, right: rightBarHandlePos }
+    );
 
-    // Appliquer les contraintes physiques (sol et limites)
+    // L'état des contraintes (par ex., collision avec le sol) est géré en interne par l'Engine
+    // mais on peut le récupérer pour l'affichage UI si besoin.
     const constraintStatus = this.engine.getConstraintStatus(this.kite);
 
-    // Analyse de vol
+    // Analyse de vol pour détecter des phénomènes comme les oscillations
     this.flightAnalyzer.addSample(
       this.kite.position,
       this.engine.getVelocity(),
@@ -140,221 +240,187 @@ export class SimulationAppV10 {
       dt
     );
 
-    // Mise à jour des overlays de debug
+    // Récupération des données aérodynamiques détaillées pour l'affichage de debug
     const aeroData = this.engine.getLastAerodynamics();
     const windVector = this.wind.getVector();
     const apparentWind = windVector.clone().sub(this.engine.getVelocity());
 
-    this.debugOverlay.updateMetrics({
-      fps: Math.round(1 / dt),
-      altitude: this.kite.position.y,
-      windSpeed: windVector.length(),
-      apparentWind: apparentWind.length(),
-      aoa: metrics.aoaDeg,
-      stallFactor: metrics.stallFactor,
-      lift: aeroData.lift.length(),
-      drag: aeroData.drag.length(),
-      tension: metrics.tension,
-      force: metrics.force,
-      oscillations: this.flightAnalyzer.analyzeOscillations()
-    });
+    // Mise à jour des vecteurs de debug 3D
+    const currentKiteVelocity = this.engine.getVelocity();
+    const kiteControlPointLeft = KiteGeometry.CONTROL_POINTS.CTRL_GAUCHE.clone().applyMatrix4(this.kite.matrixWorld);
+    const kiteControlPointRight = KiteGeometry.CONTROL_POINTS.CTRL_DROIT.clone().applyMatrix4(this.kite.matrixWorld);
 
-    // Debug vectors
-    const vel = this.engine.getVelocity();
-    const windVec = this.wind.getVector();
-    const apparent = windVec.clone().sub(vel);
-    const aero = this.engine.getLastAerodynamics();
-    // Actualiser les lignes (après intégration pour refléter la position actuelle du kite)
-    const leftKite = (this.kite as any).getPoint ? (this.kite as any).getPoint('CTRL_GAUCHE') : undefined;
-    const rightKite = (this.kite as any).getPoint ? (this.kite as any).getPoint('CTRL_DROIT') : undefined;
-    if (leftKite && rightKite) {
-      const lk = (leftKite as THREE.Vector3).clone().applyMatrix4(this.kite.matrixWorld);
-      const rk = (rightKite as THREE.Vector3).clone().applyMatrix4(this.kite.matrixWorld);
-      this.lines.update(leftBar, lk, rightBar, rk);
-    }
-
-    this.leftTension = Math.round(metrics.leftTension || 0);
-    this.rightTension = Math.round(metrics.rightTension || 0);
-
-    // Positionner les vecteurs là où les forces s'appliquent réellement
-    const kitePosition = this.kite.position; // SPINE_BAS - où les forces résultantes sont appliquées
-    const centerOfMassLocal = new THREE.Vector3(0, 0.325, 0); // Centre de masse physique
-    const centerOfMassWorld = centerOfMassLocal.clone()
-      .applyQuaternion(this.kite.quaternion)
-      .add(this.kite.position);
-
-    // Calculer le centre de pression aérodynamique (moyenne pondérée des surfaces)
-    const centerOfPressureLocal = new THREE.Vector3(0, 0.4, 0); // Approximation vers l'avant
-    const centerOfPressureWorld = centerOfPressureLocal.clone()
-      .applyQuaternion(this.kite.quaternion)
-      .add(this.kite.position);
-
-    // Ajuster les centres des surfaces pour les coordonnées mondiales absolues
-    const adjustedSurfaces = (aeroData.surfaces || []).map((surface: any) => ({
+    // Ajuster les centres des surfaces pour les coordonnées mondiales absolues pour le debug
+    const adjustedSurfaces = (aeroData.surfaces || []).map(surface => ({
       ...surface,
-      center: surface.center.clone().add(this.kite.position) // Ajouter la position du kite !
+      center: surface.center.clone().applyMatrix4(this.kite.matrixWorld) // Transformer en coords mondiales
     }));
 
     this.debugVectors.update(this.kite.position, {
-      globalVelocity: vel,
-      surfaceData: adjustedSurfaces, // Centres corrigés en coordonnées mondiales
-      leftLine: leftKite ? { from: leftBar, to: (leftKite as THREE.Vector3).clone().applyMatrix4(this.kite.matrixWorld) } : undefined,
-      rightLine: rightKite ? { from: rightBar, to: (rightKite as THREE.Vector3).clone().applyMatrix4(this.kite.matrixWorld) } : undefined,
-      isStalling: metrics.stallFactor < 0.95,
+      globalVelocity: currentKiteVelocity,
+      surfaceData: adjustedSurfaces,
+      leftLine: { from: leftBarHandlePos, to: kiteControlPointLeft },
+      rightLine: { from: rightBarHandlePos, to: kiteControlPointRight },
+      isStalling: metrics.stallFactor < 0.95, // Seuil de décrochage
     });
 
-    // Aucun asservissement d'orientation: réaction pure aux forces et contraintes
+    // Actualiser les lignes 3D (après intégration physique)
+    this.lines.update(leftBarHandlePos, kiteControlPointLeft, rightBarHandlePos, kiteControlPointRight);
 
-    // Rendu
+    // Mise à jour de l'UI en temps réel via le SimulationUIManager
+    const fps = dt > 0 ? 1 / dt : 60;
+    this.fpsSMA = this.fpsSMA * 0.9 + fps * 0.1; // Calcul de la moyenne mobile des FPS
+
+    this.uiManager.updateRealTimeValues({
+      fps: Math.round(this.fpsSMA),
+      altitude: this.kite.position.y,
+      windSpeed: windVector.length() * 3.6, // Convertir en km/h pour l'affichage
+      forceAero: metrics.force,
+      lineTensionStatus: `G:${Math.round(metrics.leftTension || 0)}N D:${Math.round(metrics.rightTension || 0)}N`,
+      physicsStatus: constraintStatus.onGround ? '⚠️ Au sol' : '✅ Actif',
+      logMessage: this.flightAnalyzer.getLatestLog(), // Ou un autre système de log
+    });
+
+    // Rendu de la scène 3D
     this.rm.render();
 
-    // UI Live: FPS et altitude
-    const fps = dt > 0 ? 1 / dt : 60;
-    this.fpsSMA = this.fpsSMA * 0.9 + fps * 0.1;
-    const altitude = this.kite.position.y;
-    (window as any).simulationUI?.updateRealTimeValues?.({ fps: Math.round(this.fpsSMA), altitude, force: metrics.force, tension: metrics.tension, airspeed: Math.round((metrics.airspeed || 0) * 10) / 10, aoa: Math.round((metrics.aoaDeg || 0)), ltension: Math.round(this.leftTension), rtension: Math.round(this.rightTension) });
     this.rafId = requestAnimationFrame(this.loop);
   };
 
-  private wireUI(): void {
-    // Boutons
-    const playPause = document.getElementById('play-pause') as HTMLButtonElement | null;
-    if (playPause && !playPause.dataset.bound) {
-      playPause.dataset.bound = '1';
-      playPause.addEventListener('click', () => {
-        if (this.running) {
-          this.pause();
-          playPause.textContent = '▶️ Lancer';
-          (window as any).simulationUI?.updateRealTimeValues?.({ physicsStatus: 'Pause' });
-        } else {
-          this.resume();
-          playPause.textContent = '⏸️ Pause';
-          (window as any).simulationUI?.updateRealTimeValues?.({ physicsStatus: 'Active' });
+  /**
+   * Configure les écouteurs d'événements pour les éléments de l'interface utilisateur.
+   * Utilise des événements personnalisés pour découpler l'UI de la logique de simulation.
+   */
+  private setupUIEventListeners(): void {
+    // Écoute des événements personnalisés déclenchés par SimulationUIManager
+    window.addEventListener('simulation:reset', () => this.resetSimulation());
+    window.addEventListener('simulation:togglePlayPause', () => {
+      if (this.running) {
+        this.pause();
+        this.uiManager.setPlayPauseButtonState(false);
+        this.uiManager.updateRealTimeValues({ physicsStatus: '⏸️ Pause' });
+      } else {
+        this.resume();
+        this.uiManager.setPlayPauseButtonState(true);
+        this.uiManager.updateRealTimeValues({ physicsStatus: '✅ Actif' });
+      }
+    });
+
+    window.addEventListener('simulation:toggleDebugMode', () => {
+      this.debugVisible = !this.debugVisible;
+      this.uiManager.setDebugButtonState(this.debugVisible);
+      this.uiManager.toggleDebugInfoPanel(this.debugVisible);
+      this.uiManager.toggleDebugLegend(this.debugVisible);
+      this.debugVectors.setVisible(this.debugVisible);
+    });
+
+    // Écouteurs pour les sliders de vent
+    this.uiManager.addUIEventListener('wind-speed', 'input', (e) => {
+      const kmh = parseFloat((e.target as HTMLInputElement).value);
+      this.wind.setSpeed(kmh / 3.6); // Convertir en m/s
+      this.uiManager.updateRealTimeValues({ windSpeed: kmh });
+    });
+    this.uiManager.addUIEventListener('wind-direction', 'input', (e) => {
+      const deg = parseFloat((e.target as HTMLInputElement).value);
+      this.wind.setDirection(deg);
+      // Pas de mise à jour windSpeed car la vitesse ne change pas, seule la direction
+    });
+    this.uiManager.addUIEventListener('wind-turbulence', 'input', (e) => {
+      const percent = parseFloat((e.target as HTMLInputElement).value);
+      this.wind.setTurbulence(percent / 100);
+      // Pas de mise à jour affichage, le slider gère son propre label de valeur
+    });
+
+    // Écouteur pour le slider de longueur de ligne
+    this.uiManager.addUIEventListener('line-length', 'input', (e) => {
+      const length = parseFloat((e.target as HTMLInputElement).value);
+      CONFIG.set('lines.defaultLength', length); // Met à jour la config EN TEMPS RÉEL
+      this.engine.setLineLength(length);         // Applique à la physique
+      // Pas de mise à jour affichage, le slider gère son propre label de valeur
+      try { localStorage.setItem('v10_line_length', String(length)); } catch { /* ignore */ }
+    });
+
+    // Initialiser les valeurs de l'UI à partir de la config
+    // Cela devrait être géré par l'UIManager lors de sa création/initialisation
+    // Mais on peut déclencher un update pour s'assurer que tout est synchronisé
+    this.uiManager.updateRealTimeValues({
+      windSpeed: CONFIG.get('wind').defaultSpeed, // en km/h
+      lineTensionStatus: `G:0N D:0N`, // Valeurs initiales
+      altitude: this.kite.position.y
+    });
+
+    // Initialisation de la longueur de ligne depuis le localStorage si elle existe
+    try {
+      const savedLineLength = parseFloat(localStorage.getItem('v10_line_length') || '');
+      if (!isNaN(savedLineLength) && savedLineLength > 0) {
+        CONFIG.set('lines.defaultLength', savedLineLength);
+        this.engine.setLineLength(savedLineLength);
+        // Mettre à jour le slider de l'UI directement si on a une référence
+        const lineLenInput = this.container.querySelector<HTMLInputElement>('#line-length');
+        if (lineLenInput) {
+          lineLenInput.value = String(savedLineLength);
+          lineLenInput.dispatchEvent(new Event('input')); // Déclenche l'événement pour mettre à jour le label
         }
-      });
-    }
-
-    const resetBtn = document.getElementById('reset-sim') as HTMLButtonElement | null;
-    if (resetBtn && !resetBtn.dataset.bound) {
-      resetBtn.dataset.bound = '1';
-      resetBtn.addEventListener('click', () => this.resetSimulation());
-    }
-
-    const debugBtn = document.getElementById('debug-physics') as HTMLButtonElement | null;
-    if (debugBtn && !debugBtn.dataset.bound) {
-      debugBtn.dataset.bound = '1';
-      // Initialiser l'état du bouton
-      debugBtn.textContent = this.debugVisible ? '🔍 Debug ON' : '🔍 Debug OFF';
-      debugBtn.classList.toggle('active', this.debugVisible);
-
-      debugBtn.addEventListener('click', () => {
-        this.debugVisible = !this.debugVisible;
-        this.debugVectors.setVisible(this.debugVisible);
-        this.debugOverlay.setVisible(this.debugVisible);
-        this.vectorLegend.setVisible(this.debugVisible);
-        (window as any).simulationUI?.toggleDebugPanel?.(this.debugVisible);
-        debugBtn.textContent = this.debugVisible ? '🔍 Debug ON' : '🔍 Debug OFF';
-        debugBtn.classList.toggle('active', this.debugVisible);
-      });
-    }
-
-    // Sliders vent/direction
-    const windSpeed = document.getElementById('wind-speed') as HTMLInputElement | null;
-    const windDir = document.getElementById('wind-direction') as HTMLInputElement | null;
-    if (windSpeed && !windSpeed.dataset.bound) {
-      windSpeed.dataset.bound = '1';
-      const sync = () => {
-        const kmh = parseFloat(windSpeed.value || '0');
-        const ms = kmh / 3.6; // Conversion V8 : km/h → m/s
-        const dir = windDir ? parseFloat(windDir.value || '0') : 0;
-        this.wind.set(ms, dir);
-        const label = document.getElementById('wind-speed-value');
-        if (label) label.textContent = `${kmh} km/h`;
-        (window as any).simulationUI?.updateRealTimeValues?.({ windSpeed: Math.round(kmh) });
-      };
-      windSpeed.addEventListener('input', sync);
-      sync();
-    }
-    if (windDir && !windDir.dataset.bound) {
-      windDir.dataset.bound = '1';
-      const syncDir = () => {
-        const dir = parseFloat(windDir.value || '0');
-        const speedInput = document.getElementById('wind-speed') as HTMLInputElement | null;
-        const ms = speedInput ? (parseFloat(speedInput.value || '0') / 3.6) : (defaultParams.windSpeed / 3.6);
-        this.wind.set(ms, dir);
-        const label = document.getElementById('wind-direction-value');
-        if (label) label.textContent = `${Math.round(dir)}°`;
-      };
-      windDir.addEventListener('input', syncDir);
-      syncDir();
-    }
-
-    // Longueur des lignes
-    const lineLen = document.getElementById('line-length') as HTMLInputElement | null;
-    if (lineLen && !lineLen.dataset.bound) {
-      lineLen.dataset.bound = '1';
-      const syncLen = () => {
-        const m = Math.max(1, Math.min(100, lineLen.valueAsNumber || this.baseLineLength));
-        this.baseLineLength = m;
-        this.engine.setLineLength(m); // Mettre à jour le système de contraintes
-        const lbl = document.getElementById('line-length-value');
-        if (lbl) lbl.textContent = `${m}m`;
-        try { localStorage.setItem('v10_line_length', String(m)); } catch { }
-      };
-      // init from storage
-      try {
-        const saved = parseFloat(localStorage.getItem('v10_line_length') || '');
-        if (!isNaN(saved)) { this.baseLineLength = saved; lineLen.value = String(saved); }
-      } catch { }
-      lineLen.addEventListener('input', syncLen);
-      syncLen();
-    }
-
-
-    const windTurb = document.getElementById('wind-turbulence') as HTMLInputElement | null;
-    if (windTurb && !windTurb.dataset.bound) {
-      windTurb.dataset.bound = '1';
-      const syncTurb = () => {
-        const turb = Math.max(0, Math.min(1, (parseFloat(windTurb.value || '0') / 100)));
-        this.wind.setTurbulence(turb);
-        const label = document.getElementById('wind-turbulence-value');
-        if (label) label.textContent = `${Math.round(turb * 100)}%`;
-      };
-      windTurb.addEventListener('input', syncTurb);
-      syncTurb();
-    }
+      }
+    } catch { /* ignore */ }
   }
 
-  private resetSimulation(): void {
-    // Position initiale V8 : calculée géométriquement par rapport au pilote
-    const pilot = this.pilot.object3d.position.clone();
-    const kiteY = 7; // Hauteur V8 éprouvée (7m au-dessus du sol)
-    const initialDistance = this.baseLineLength * 0.95; // Légèrement moins tendu
-    const dy = kiteY - pilot.y;
-    const horizontal = Math.max(0.1, Math.sqrt(Math.max(0, initialDistance * initialDistance - dy * dy)));
 
-    this.kite.position.set(pilot.x, kiteY, pilot.z - horizontal);
+  private resetSimulation(): void {
+    // Position initiale du kite calculée géométriquement par rapport au pilote
+    const pilotPos = this.pilot.object3d.position.clone();
+    const initialLineLength = CONFIG.get('lines').defaultLength;
+    const dy = INITIAL_KITE_Y_HEIGHT - pilotPos.y;
+    const horizontalDistance = Math.max(
+      PhysicsConstants.EPSILON,
+      Math.sqrt(Math.max(0, initialLineLength * initialLineLength - dy * dy)) * INITIAL_KITE_HORIZONTAL_FACTOR
+    );
+
+    this.kite.position.set(pilotPos.x, INITIAL_KITE_Y_HEIGHT, pilotPos.z - horizontalDistance);
     this.kite.rotation.set(0, 0, 0);
     this.kite.quaternion.identity();
 
     this.engine.reset();
-    this.engine.setLineLength(this.baseLineLength); // Restaurer la longueur des lignes
-    (window as any).simulationUI?.updateRealTimeValues?.({ physicsStatus: 'Active' });
+    this.engine.setLineLength(initialLineLength); // Restaurer la longueur des lignes
+    this.flightAnalyzer.reset(); // Réinitialiser l'analyseur de vol
+    this.uiManager.updateRealTimeValues({ physicsStatus: '✅ Actif' }); // Met à jour statut UI
+    this.lastTime = performance.now(); // Reset le temps pour éviter un gros dt à la reprise
+    this.fpsSMA = 60; // Réinitialise le SMA des FPS
   }
 
-  pause(): void { this.running = false; }
+  /**
+   * Met la simulation en pause.
+   */
+  pause(): void {
+    this.running = false;
+  }
+
+  /**
+   * Reprend la simulation si elle est en pause.
+   */
   resume(): void {
     if (!this.running) {
       this.running = true;
-      this.lastTime = performance.now();
-      requestAnimationFrame(this.loop);
+      this.lastTime = performance.now(); // Réinitialise lastTime pour éviter un grand dt au démarrage
+      this.rafId = requestAnimationFrame(this.loop); // Relance la boucle de rendu
     }
   }
 
+  /**
+   * Effectue le nettoyage des ressources pour arrêter proprement la simulation.
+   */
   cleanup(): void {
     this.running = false;
-    this.input.dispose();
-    this.rm.dispose();
-    if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    this.input.dispose();        // Nettoie les écouteurs d'entrée
+    this.rm.dispose();           // Nettoie le RenderManager (renderer, controls...)
+    this.uiManager.cleanup();    // Nettoie l'UI Manager
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId); // Arrête la boucle d'animation
+    }
+    // Assurez-vous que le conteneur UI est également nettoyé si l'UIManager ne le fait pas.
+    if (this.container && this.container.parentNode) {
+      // Dépend de comment l'UIManager gère son #simulation-ui-container
+      // Si SimulationUIManager nettoie son conteneur, ce n'est pas nécessaire ici.
+    }
   }
 }

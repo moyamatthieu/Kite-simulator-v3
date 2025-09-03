@@ -1,6 +1,6 @@
 /**
  * SimulationLoader.ts - Système de chargement dynamique des versions de simulation
- * 
+ *
  * Ce module détecte automatiquement toutes les versions de simulation disponibles
  * et permet de basculer entre elles dynamiquement.
  * Utilise l'interface universelle V10 pour toutes les simulations.
@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { UniversalUI, initializeUniversalUI } from './UniversalUI.js';
+import { logger } from '@core/Logger'; // Import du logger
 
 // Interface pour les informations d'une simulation
 interface SimulationInfo {
@@ -39,10 +40,10 @@ export class SimulationLoader {
 
     constructor(container: HTMLElement) {
         this.container = container;
-        
+
         // Initialiser l'interface universelle V10
         this.universalUI = initializeUniversalUI(container);
-        
+
         this.discoverSimulations();
     }
 
@@ -51,7 +52,7 @@ export class SimulationLoader {
      * Utilise import.meta.glob pour scanner les fichiers
      */
     private async discoverSimulations(): Promise<void> {
-        console.log('🔍 Recherche des simulations disponibles...');
+        logger.info('Recherche des simulations disponibles...', 'SimulationLoader');
 
         // Utiliser import.meta.glob pour trouver tous les fichiers simulation*.ts
         const simulationModules = import.meta.glob('./simulation*.ts');
@@ -96,11 +97,11 @@ export class SimulationLoader {
                 };
 
                 this.simulations.set(version, info);
-                console.log(`✅ Trouvé: ${name} (${filename})`);
+                logger.debug(`Trouvé: ${name} (${filename})`, 'SimulationLoader');
             }
         }
 
-        console.log(`📦 ${this.simulations.size} simulation(s) découverte(s)`);
+        logger.info(`${this.simulations.size} simulation(s) découverte(s)`, 'SimulationLoader');
 
         // Créer l'interface de sélection
         this.createUI();
@@ -150,11 +151,11 @@ export class SimulationLoader {
     public async loadSimulation(version: string): Promise<boolean> {
         const info = this.simulations.get(version);
         if (!info) {
-            console.error(`❌ Version ${version} non trouvée`);
+            logger.error(`Version ${version} non trouvée`, 'SimulationLoader');
             return false;
         }
 
-        console.log(`🚀 Chargement de ${info.name}...`);
+        logger.info(`Chargement de ${info.name}...`, 'SimulationLoader');
 
         // Nettoyer la simulation actuelle
         if (this.currentSimulation) {
@@ -176,10 +177,10 @@ export class SimulationLoader {
 
             if (mainClass) {
                 // Créer une instance de la simulation
-                console.log(`✨ Instanciation de ${mainClass.name}`);
+                logger.info(`Instanciation de ${mainClass.name}`, 'SimulationLoader');
                 info.instance = new mainClass();
             } else {
-                console.log('⚡ Module chargé (pas de classe principale trouvée)');
+                logger.warn('Module chargé (pas de classe principale trouvée)', 'SimulationLoader');
             }
 
             this.currentSimulation = info;
@@ -207,11 +208,11 @@ export class SimulationLoader {
             // Mettre à jour l'interface
             this.updateUI(version);
 
-            console.log(`✅ ${info.name} chargée avec succès`);
+            logger.info(`${info.name} chargée avec succès`, 'SimulationLoader');
             return true;
 
         } catch (error) {
-            console.error(`❌ Erreur lors du chargement de ${info.name}:`, error);
+            logger.error(`Erreur lors du chargement de ${info.name}: ${error}`, 'SimulationLoader');
             return false;
         }
     }
@@ -260,7 +261,7 @@ export class SimulationLoader {
      */
     private cleanupCurrentSimulation(): void {
         if (this.currentSimulation?.instance) {
-            console.log('🧹 Nettoyage de la simulation actuelle...');
+            logger.info('Nettoyage de la simulation actuelle...', 'SimulationLoader');
 
             // Essayer de nettoyer le renderer Three.js si accessible
             if (this.currentSimulation.instance.renderer) {
@@ -278,7 +279,7 @@ export class SimulationLoader {
                     // Nettoyer le renderer
                     this.currentSimulation.instance.renderer.dispose();
                 } catch (error) {
-                    console.warn('Erreur lors du nettoyage du renderer:', error);
+                    logger.warn(`Erreur lors du nettoyage du renderer: ${error}`, 'SimulationLoader');
                 }
             }
 
@@ -303,7 +304,7 @@ export class SimulationLoader {
                 const canvas = this.container.firstChild as HTMLCanvasElement;
 
                 // Ne pas essayer d'obtenir le contexte, juste supprimer le canvas
-                console.log('🗑️ Suppression du canvas WebGL...');
+                logger.debug('Suppression du canvas WebGL...', 'SimulationLoader');
             }
             this.container.removeChild(this.container.firstChild);
         }
@@ -505,7 +506,7 @@ if (typeof window !== 'undefined') {
 
             // Logger les changements
             loader.onSimulationChanged((info) => {
-                console.log(`🎮 Simulation active: ${info.name}`);
+                logger.info(`Simulation active: ${info.name}`, 'SimulationLoader');
             });
 
             // La simulation est déjà chargée dans discoverSimulations()

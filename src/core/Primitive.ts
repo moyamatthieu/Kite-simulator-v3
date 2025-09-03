@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { MaterialConfig } from '@types';
+import { MaterialConfig } from '@/types';
 
 /**
  * Classe statique pour générer les primitives de base

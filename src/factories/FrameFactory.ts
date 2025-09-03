@@ -1,13 +1,13 @@
 /**
  * FrameFactory.ts - Factory pour créer des structures filaires (frames)
  * 
- * Pattern actuel KISS : Points → Cylindres entre points
- * Compatible avec buildStructure() de StructuredObject
+ * Utilise le pattern Builder pour construire des structures, compatible avec buildStructure() de StructuredObject.
  */
 
 import { BaseFactory, FactoryParams } from '@base/BaseFactory';
 import { StructuredObject } from '@core/StructuredObject';
-import { ICreatable } from '@types';
+import { ICreatable, Position3D } from '@/types'; // Import de Position3D
+import { IStructuredObjectBuilder, IStructuredObjectContext } from '@core/DynamicStructuredObject';
 
 export interface FrameParams extends FactoryParams {
   diameter?: number;     // Diamètre des tubes
@@ -18,13 +18,6 @@ export interface FrameParams extends FactoryParams {
 
 /**
  * Factory pour créer des structures filaires
- * 
- * TODO: Questions pour évolution future
- * - [ ] Supporter différents profils (carré, rond, I-beam) ?
- * - [ ] Ajouter des jonctions/connecteurs aux intersections ?
- * - [ ] Calculer automatiquement les connexions optimales ?
- * - [ ] Supporter des courbes (splines) entre points ?
- * - [ ] Ajouter contraintes mécaniques (résistance, poids) ?
  */
 export class FrameFactory extends BaseFactory<StructuredObject & ICreatable> {
   protected metadata = {
@@ -44,60 +37,41 @@ export class FrameFactory extends BaseFactory<StructuredObject & ICreatable> {
     };
   }
 
-  createObject(params?: FrameParams): StructuredObject & ICreatable {
+  protected createBuilder(params: FrameParams): IStructuredObjectBuilder {
     const mergedParams = this.mergeParams(params) as FrameParams;
-    
-    class FrameObject extends StructuredObject implements ICreatable {
-      constructor() {
-        super("Frame", false);
-      }
-      
-      protected definePoints(): void {
-        // Ajouter les points fournis
+    const factoryMetadata = this.metadata;
+
+    return {
+      definePoints(context: IStructuredObjectContext): void {
         if (mergedParams.points) {
           mergedParams.points.forEach(([name, position]) => {
-            this.setPoint(name, position as [number, number, number]);
+            context.setPoint(name, position as Position3D);
           });
         }
-      }
-      
-      protected buildStructure(): void {
+      },
+
+      buildStructure(context: IStructuredObjectContext): void {
         // Créer les cylindres entre les points connectés
         if (mergedParams.connections) {
           mergedParams.connections.forEach(([point1, point2]) => {
-            this.addCylinderBetweenPoints(
-              point1, 
-              point2, 
+            // Utilisation du context pour appeler addCylinderBetweenPoints
+            context.addCylinderBetweenPoints(
+              point1,
+              point2,
               mergedParams.diameter || 0.01,
               mergedParams.material || '#333333'
             );
           });
         }
-      }
-      
-      protected buildSurfaces(): void {
+      },
+
+      buildSurfaces(context: IStructuredObjectContext): void {
         // Pas de surfaces pour un frame
-      }
-      
-      // Implémentation ICreatable
-      create(): this { return this; }
-      getName(): string { return 'Frame'; }
-      getDescription(): string { return 'Structure filaire'; }
+      },
+
+      getName(): string { return factoryMetadata.name; }, // Utilise les métadonnées capturées de la factory
+      getDescription(): string { return factoryMetadata.description; }, // Utilise les métadonnées capturées de la factory
       getPrimitiveCount(): number { return (mergedParams.connections || []).length; }
-    }
-    
-    const frame = new FrameObject();
-    frame.init();
-    return frame;
+    };
   }
 }
-
-/**
- * TODO: Méthodes utilitaires à considérer
- * 
- * - createTruss() : Créer une structure triangulée
- * - createLattice() : Créer une structure en treillis
- * - createSpaceFrame() : Structure spatiale 3D
- * - optimizeJoints() : Optimiser les jonctions
- * - calculateStress() : Calculer les contraintes (FEA simplifié)
- */

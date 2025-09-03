@@ -11,7 +11,8 @@ export { Primitive } from './Primitive';
 export { Registry } from './Registry';
 export { AutoLoader } from './AutoLoader';
 
-// Re-export des types depuis Node3D pour l'autocomplétion
-export type { Transform3D, Signal } from './Node3D';
+// Re-export des types pour l'autocomplétion
+export type { Transform3D } from './Node3D';
+export type { Signal } from './SignalManager';
 
 // Note: NamedPoint est un type privé dans StructuredObject

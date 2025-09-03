@@ -2,4 +2,4 @@
  * Mechanical objects exports
  */
 
-export { Gear } from './Gear';
+export { GearFactory } from '@factories/GearFactory';

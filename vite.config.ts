@@ -14,10 +14,11 @@ export default defineConfig({
       '@base': resolve(__dirname, 'src/base'),
       '@factories': resolve(__dirname, 'src/factories'),
       '@objects': resolve(__dirname, 'src/objects'),
-      '@renderer': resolve(__dirname, 'src/renderer/index'),
       '@types': resolve(__dirname, 'src/types'),
-      '@export': resolve(__dirname, 'src/export/index'),
       '@ui': resolve(__dirname, 'src/ui'),
+      '@utils': resolve(__dirname, 'src/utils'),
+      '@renderer': resolve(__dirname, 'src/renderer'),
+      '@export': resolve(__dirname, 'src/export'),
       '@simulation': resolve(__dirname, 'src/simulation'),
       '@simulation/simu_V10': resolve(__dirname, 'src/simulation/simu_V10'),
 
@@ -43,8 +44,7 @@ export default defineConfig({
     // Configuration multi-pages
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        simulation: resolve(__dirname, 'simulation.html')
+        main: resolve(__dirname, 'index.html')
       }
     }
   }

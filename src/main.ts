@@ -4,10 +4,12 @@
  * 🎮 Compatible Godot via Node3D + ThreeRenderer
  */
 
-import { ThreeRenderer } from '@renderer';
-import { GodotExporter, OBJExporter } from '@export';
+import { ThreeRenderer, ThreeRendererConfig } from '@renderer/ThreeRenderer';
 import { AutoLoader } from '@core/AutoLoader';
 import { StructuredObject } from '@core/StructuredObject';
+import { logger } from '@core/Logger';
+import { GodotExporter } from '@export/GodotExporter';
+import { OBJExporter } from '@export/OBJExporter';
 
 // === Application principale KISS avec Hot Reload automatique ===
 
@@ -21,17 +23,25 @@ class App {
     private showingDebugPoints = false;
 
     constructor() {
-        console.log('🚀 Démarrage de CAO KISS v3.0 - avec Car!');
+        logger.info('Démarrage de CAO KISS v3.0 - avec Car!', 'App');
 
         // 🏗️ Initialiser l'auto-loader
         this.autoLoader = new AutoLoader();
 
         // 🎮 Initialiser le renderer
-        this.renderer = new ThreeRenderer({
+        const rendererConfig: ThreeRendererConfig = {
             canvasContainer: document.getElementById('app')!,
-            backgroundColor: '#1a1a2e',
-            cameraPosition: [5, 4, 5]
-        });
+            scene: {
+                backgroundColor: '#1a1a2e',
+                fog: true
+            },
+            camera: {
+                position: [5, 4, 5]
+            },
+            shadows: true,
+            antialias: true
+        };
+        this.renderer = new ThreeRenderer(rendererConfig);
 
         // 🎯 Configuration initiale
         this.init();
@@ -88,9 +98,9 @@ class App {
                 this.showingLabels = state.showingLabels || false;
                 this.showingDebugPoints = state.showingDebugPoints || false;
                 this.isAnimating = state.isAnimating || false;
-                console.log('🔄 État restauré:', state);
+                logger.debug('État restauré:', 'App', state);
             } catch (error) {
-                console.error('Erreur lors de la restauration de l\'état:', error);
+                logger.error(`Erreur lors de la restauration de l'état: ${error}`, 'App');
             }
         }
     }
@@ -98,12 +108,12 @@ class App {
     // === 🎯 Gestion des Objets ===
 
     async loadObject(id: string): Promise<void> {
-        console.log(`🎯 Chargement de l'objet: ${id}`);
+        logger.info(`Chargement de l'objet: ${id}`, 'App');
 
         try {
             const objectInstance = await this.autoLoader.create(id);
             if (!objectInstance) {
-                console.error(`❌ Objet '${id}' non trouvé`);
+                logger.error(`Objet '${id}' non trouvé`, 'App');
                 return;
             }
 
@@ -127,10 +137,10 @@ class App {
             // Sauvegarder l'état
             this.saveState();
 
-            console.log(`✅ Objet '${id}' chargé avec succès`);
+            logger.info(`Objet '${id}' chargé avec succès`, 'App');
 
         } catch (error) {
-            console.error(`❌ Erreur lors du chargement de '${id}':`, error);
+            logger.error(`Erreur lors du chargement de '${id}': ${error}`, 'App');
         }
     }
 
@@ -193,20 +203,20 @@ class App {
 
         if (simBtn) {
             simBtn.onclick = () => {
-                // Sauvegarder l'état avant de basculer
+                // Sauvegarder l'état avant d'basculer
                 this.saveState();
-                
+
                 // Ajouter une transition douce
                 document.body.style.transition = 'opacity 0.3s';
                 document.body.style.opacity = '0';
-                
+
                 setTimeout(() => {
                     // Rediriger vers la page de simulation
                     window.location.href = '/simulation.html';
                 }, 300);
             };
         }
-        
+
         // Le bouton CAO est déjà actif sur cette page
         if (caoBtn) {
             caoBtn.classList.add('active');
@@ -257,10 +267,10 @@ class App {
                 });
             });
 
-            console.log('🎮 Boutons d\'objets générés automatiquement');
+            logger.info('Boutons d\'objets générés automatiquement', 'App');
 
         } catch (error) {
-            console.error('❌ Erreur lors de la génération des boutons:', error);
+            logger.error(`Erreur lors de la génération des boutons: ${error}`, 'App');
         }
     }
 
@@ -315,7 +325,7 @@ class App {
     // === 🔧 Actions ===
 
     private resetView(): void {
-        console.log('🔄 Reset view');
+        logger.info('Reset view', 'App');
         this.renderer.resetCamera();
 
         if (this.currentObject) {
@@ -324,7 +334,7 @@ class App {
     }
 
     private toggleDebugPoints(): void {
-        console.log('🔍 Toggle debug points');
+        logger.info('Toggle debug points', 'App');
 
         if (this.currentObject) {
             const currentState = this.currentObject.showDebugPoints;
@@ -343,7 +353,7 @@ class App {
     }
 
     private toggleLabels(): void {
-        console.log('🏷️ Toggle labels');
+        logger.info('Toggle labels', 'App');
 
         if (this.currentObject) {
             const currentState = this.currentObject.showLabels;
@@ -363,7 +373,7 @@ class App {
 
     private toggleAnimation(): void {
         this.isAnimating = !this.isAnimating;
-        console.log(`🎬 Animation: ${this.isAnimating ? 'ON' : 'OFF'}`);
+        logger.info(`Animation: ${this.isAnimating ? 'ON' : 'OFF'}`, 'App');
 
         const btn = document.getElementById('animate-btn');
         if (btn) {
@@ -388,49 +398,36 @@ class App {
         animate();
     }
 
-    private exportToGodot(): void {
+    private async exportToGodot(): Promise<void> {
         if (!this.currentObject) {
             alert('Aucun objet à exporter !');
             return;
         }
 
-        console.log('🎮 Export vers Godot...');
+        logger.info('Export vers Godot...', 'App');
 
         try {
             GodotExporter.downloadTSCN(this.currentObject);
-            console.log('✅ Export Godot réussi !');
+            logger.info('Export Godot réussi !', 'App');
         } catch (error) {
-            console.error('❌ Erreur lors de l\'export Godot:', error);
+            logger.error(`Erreur lors de l'export Godot: ${error}`, 'App');
             alert('Erreur lors de l\'export : ' + error);
         }
     }
 
-    private exportToOBJ(): void {
+    private async exportToOBJ(): Promise<void> {
         if (!this.currentObject) {
             alert('Aucun objet à exporter !');
             return;
         }
 
-        console.log('📦 Export vers OBJ...');
+        logger.info('Export vers OBJ...', 'App');
 
         try {
-            let objectToExport = this.currentObject;
-            let filename = `${this.currentObjectId}.obj`;
-
-            // Pour le cube, créer une version imprimable (sans frames ni marqueurs)
-            if (this.currentObjectId === 'cube') {
-                console.log('🎲 Export du cube en mode imprimable...');
-                filename = 'cube-20mm.obj';
-            }
-
-            // Convention : 1 unité Three.js = 10mm à l'export
-            // Le cube fait 2 unités = 20mm
-            // Pour d'autres objets, on peut ajuster si nécessaire
-            const scale = 10; // 1 unité = 10mm pour tous les objets
-            OBJExporter.download(objectToExport, filename, scale);
-            console.log('✅ Export OBJ réussi ! (Échelle: 1 unité = 10mm)');
+            OBJExporter.download(this.currentObject, `${this.currentObjectId}.obj`, 10); // Scale 10
+            logger.info('Export OBJ réussi ! (Échelle: 1 unité = 10mm)', 'App');
         } catch (error) {
-            console.error('❌ Erreur lors de l\'export OBJ:', error);
+            logger.error(`Erreur lors de l'export OBJ: ${error}`, 'App');
             alert('Erreur lors de l\'export : ' + error);
         }
     }
@@ -451,7 +448,7 @@ if (document.readyState === 'loading') {
 
 if (import.meta.hot) {
     import.meta.hot.accept(() => {
-        console.log('🔥 Hot reload détecté');
+        logger.info('Hot reload détecté', 'App');
         window.location.reload();
     });
 }

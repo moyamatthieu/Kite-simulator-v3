@@ -29,18 +29,34 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
+      "@types": ["src/types/index.ts"],
+      
+      // Core architecture - SOLID principles
       "@core/*": ["src/core/*"],
       "@abstractions/*": ["src/abstractions/*"],
       "@base/*": ["src/base/*"],
-      "@factories/*": ["src/factories/*"],
-      "@objects/*": ["src/objects/*"],
-      "@renderer": ["src/renderer/index"],
-      "@renderer/*": ["src/renderer/*"],
-      "@types": ["src/types/index"],
-      "@export": ["src/export/index"],
-      "@export/*": ["src/export/*"]
-      ,
+      
+      // New modular simulation architecture
+      "@simulation/core/*": ["src/simulation/core/*"],
+      "@simulation/legacy/*": ["src/simulation/simu_V10/*"],
       "@simulation/*": ["src/simulation/*"],
+      
+      // Unified factory system
+      "@factories/unified/*": ["src/factories/unified/*"],
+      "@factories/legacy/*": ["src/factories/*"],
+      "@factories/*": ["src/factories/*"],
+      
+      // Objects and rendering
+      "@objects/*": ["src/objects/*"],
+      "@renderer/*": ["src/renderer/*"],
+      "@3d/*": ["src/core/abstractions/I3DRenderer", "src/core/implementations/Three3DRenderer"],
+      
+      // Utilities and exports
+      "@export/*": ["src/export/*"],
+      "@ui/*": ["src/ui/*"],
+      "@utils/*": ["src/utils/*"],
+      
+      // Legacy paths for backward compatibility
       "@simulation/simu_V10/*": ["src/simulation/simu_V10/*"]
     }
   },

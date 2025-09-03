@@ -78,18 +78,21 @@ import { ICreatable } from '../types';
 ```
 
 **Alias disponibles** :
-- `@core/*` : Classes du noyau (Node3D, StructuredObject, Registry, etc.)
+- `@core/*` : Classes du noyau (Node3D, StructuredObject, Registry, AppState, Logger, etc.)
 - `@types` : Types et interfaces TypeScript
 - `@renderer` : Système de rendu
 - `@export` : Exportateurs (Godot, OBJ, etc.)
-- `@objects/*` : Objets 3D par catégorie
+- `@ui/*` : Interface utilisateur (UIManager)
+- `@utils/*` : Utilitaires (RendererUtils, ThreeJSUtils, etc.)
+- `@objects/*` : Objets 3D par catégorie (legacy - remplacés par Factories)
   - `@objects/furniture/*` : Meubles
   - `@objects/shapes/*` : Formes géométriques
   - `@objects/mechanical/*` : Objets mécaniques
   - `@objects/organic/*` : Objets organiques
 - `@base/*` : Classes de base et patterns
-- `@factories/*` : Factory patterns
+- `@factories/*` : Factory patterns (architecture principale)
 - `@abstractions/*` : Classes abstraites
+- `@simulation/*` : Système de simulation de cerf-volant
 
 ### Organisation des Fichiers v3.0
 

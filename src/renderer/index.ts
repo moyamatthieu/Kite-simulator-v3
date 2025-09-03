@@ -3,4 +3,4 @@
  */
 
 export { ThreeRenderer } from './ThreeRenderer';
-export type { RendererConfig } from './ThreeRenderer';
+export type { ThreeRendererConfig as RendererConfig } from './ThreeRenderer';

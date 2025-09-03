@@ -47,8 +47,8 @@ export class AutoLoader {
     private async doLoadAllObjects(): Promise<void> {
         try {
             // Découverte automatique des objets via import.meta.glob
-            // Chercher dans tous les sous-dossiers de /src/objects/
-            const objectModules = import.meta.glob('../objects/**/*.ts', { eager: true });
+            // Chercher SEULEMENT dans le dossier racine /src/objects/ (pas de sous-dossiers)
+            const objectModules = import.meta.glob('../objects/*.ts', { eager: true });
             
             for (const [filePath, module] of Object.entries(objectModules)) {
                 // Extraire le nom du fichier (ex: Table.ts -> Table)
@@ -56,10 +56,6 @@ export class AutoLoader {
                 
                 // Ignorer le fichier index.ts s'il existe
                 if (fileName === 'index') continue;
-                
-                // Extraire le dossier parent (ex: ../objects/furniture/Table.ts -> furniture)
-                const pathParts = filePath.split('/');
-                const folderName = pathParts[pathParts.length - 2] || 'uncategorized';
                 
                 const moduleObj = module as any;
                 
@@ -81,17 +77,16 @@ export class AutoLoader {
                             // Générer un ID basé sur le nom du fichier (en minuscules)
                             const id = fileName.toLowerCase();
                             
-                            // Enregistrer l'objet avec le dossier parent
+                            // Enregistrer l'objet (sans catégorie)
                             this.objects.set(id, {
                                 id,
                                 name: instance.getName(),
                                 description: instance.getDescription(),
                                 className: fileName,
-                                instance,
-                                folderPath: folderName
+                                instance
                             });
                             
-                            console.log(`✅ Objet chargé automatiquement: ${id} (${classNameCapitalized || fileName}) depuis ${folderName}/`);
+                            console.log(`✅ Objet chargé automatiquement: ${id} (${classNameCapitalized || fileName})`);
                         } else {
                             console.warn(`⚠️ ${fileName} ne semble pas être un objet ICreatable valide`);
                         }

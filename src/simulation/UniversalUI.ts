@@ -3,7 +3,8 @@
  * Système d'interface unifié pour toutes les versions de simulation
  */
 
-import { SimulationUI } from './simu_V10/ui/SimulationUI.js';
+import { SimulationUI } from './ui/SimulationUI.js';
+import { logger } from '@core/Logger'; // Import du logger
 
 export class UniversalUI {
     private static instance: UniversalUI | null = null;
@@ -14,7 +15,7 @@ export class UniversalUI {
     constructor(container: HTMLElement) {
         // Pattern singleton pour éviter les duplications
         if (UniversalUI.instance) {
-            console.warn('UniversalUI: Instance déjà existante, réutilisation');
+            logger.warn('UniversalUI: Instance déjà existante, réutilisation', 'UniversalUI');
             return UniversalUI.instance;
         }
 
@@ -24,11 +25,11 @@ export class UniversalUI {
 
         // Nettoyer les anciennes interfaces
         this.cleanupOldInterfaces();
-        
+
         // Exposer l'interface globalement pour compatibilité
         (window as any).simulationUI = this.simulationUI;
-        
-        console.log('✅ Interface universelle V10 initialisée');
+
+        logger.info('Interface universelle V10 initialisée', 'UniversalUI');
     }
 
     /**
@@ -55,7 +56,7 @@ export class UniversalUI {
     private updateUIForVersion(version: string): void {
         // L'interface V10 est suffisamment flexible pour toutes les versions
         // Pas besoin de modifications spécifiques
-        console.log(`🎨 Interface adaptée pour la simulation ${version}`);
+        logger.info(`Interface adaptée pour la simulation ${version}`, 'UniversalUI');
     }
 
     /**
@@ -65,7 +66,7 @@ export class UniversalUI {
         // Supprimer les anciens panneaux d'autres systèmes
         const oldPanels = this.container.querySelectorAll('.ui-panel:not([data-v10])');
         oldPanels.forEach(panel => panel.remove());
-        
+
         // Nettoyer les anciens event listeners
         const oldButtons = document.querySelectorAll('button[id*="mode-"], button[id*="reset-"], button[id*="play-"]');
         oldButtons.forEach(button => {
@@ -73,8 +74,8 @@ export class UniversalUI {
                 button.remove();
             }
         });
-        
-        console.log('🧹 Anciennes interfaces nettoyées');
+
+        logger.info('Anciennes interfaces nettoyées', 'UniversalUI');
     }
 
     /**
@@ -109,11 +110,11 @@ export class UniversalUI {
             const panels = this.container.querySelectorAll('.ui-panel[data-v10]');
             panels.forEach(panel => panel.remove());
         }
-        
+
         UniversalUI.instance = null;
         delete (window as any).simulationUI;
-        
-        console.log('🗑️ Interface universelle nettoyée');
+
+        logger.info('Interface universelle nettoyée', 'UniversalUI');
     }
 }
 
