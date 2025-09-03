@@ -1,18 +1,16 @@
 /**
- * aerodynamics.ts — Calculs aérodynamiques avancés inspirés de V9
- * Implémente les calculs par face avec stall factor et cache
+ * aerodynamics.ts — Calculs aérodynamiques EXACTEMENT comme V8
+ * 
+ * PHYSIQUE ÉMERGENTE V8 :
+ * - Calcul par triangle du cerf-volant (4 surfaces)
+ * - Force = 0.5 × ρ × V² × Area × cos(angle) dans la direction normale
+ * - Couple émergeant naturellement de la différence gauche/droite
+ * - AUCUN coefficient artificiel - physique pure !
  */
 
 import * as THREE from 'three';
 import { AeroCache } from '@simulation/simu_V10/cache/AeroCache';
-
-export interface AerodynamicForces {
-    lift: THREE.Vector3;
-    drag: THREE.Vector3;
-    torque: THREE.Vector3;
-    leftForce?: THREE.Vector3;
-    rightForce?: THREE.Vector3;
-}
+import { IAerodynamicForces, ISurfaceForces, IAeroCoefficients } from '@simulation/simu_V10/interfaces/physics';
 
 export interface AerodynamicMetrics {
     apparentSpeed: number;
@@ -24,165 +22,229 @@ export interface AerodynamicMetrics {
 }
 
 export class AerodynamicsCalculator {
-    private static readonly rho = 1.225; // air density
-    private static readonly stallAngle = 18; // degrés
-    private static readonly stallRecoveryAngle = 10; // degrés
-    // Paramètres inspirés de V8 pour un comportement plus naturel
-    private static readonly liftScale = 1.5; // Réduit comme V8
-    private static readonly dragScale = 1.0; // Naturel comme V8
+    private static readonly rho = 1.225; // Densité de l'air
+    private static readonly EPSILON = 1e-4;
+    
+    // Paramètres EXACTEMENT comme V8
+    private static readonly liftScale = 1.5; // Portance augmentée V8
+    private static readonly dragScale = 1.0;  // Traînée naturelle V8
 
-    // Géométrie du kite (inspiré de V9)
+    // Géométrie EXACTE V8 - Points anatomiques du cerf-volant
+    private static readonly POINTS = {
+        NEZ: new THREE.Vector3(0, 0.65, 0),
+        SPINE_BAS: new THREE.Vector3(0, 0, 0),
+        BORD_GAUCHE: new THREE.Vector3(-0.825, 0, 0),
+        BORD_DROIT: new THREE.Vector3(0.825, 0, 0),
+        WHISKER_GAUCHE: new THREE.Vector3(-0.4125, 0.1, -0.15),
+        WHISKER_DROIT: new THREE.Vector3(0.4125, 0.1, -0.15)
+    };
+
+    // 4 triangles EXACTEMENT comme V8
     private static readonly SURFACES = [
         {
             vertices: [
-                new THREE.Vector3(0, 0.65, 0),      // nez
-                new THREE.Vector3(-0.825, 0, 0),    // bord gauche
-                new THREE.Vector3(-0.4125, 0.1, -0.15) // whisker gauche
+                AerodynamicsCalculator.POINTS.NEZ,
+                AerodynamicsCalculator.POINTS.BORD_GAUCHE,
+                AerodynamicsCalculator.POINTS.WHISKER_GAUCHE
             ],
-            area: 0.23
+            area: 0.23 // m² - Surface haute gauche
         },
         {
             vertices: [
-                new THREE.Vector3(0, 0.65, 0),      // nez
-                new THREE.Vector3(-0.4125, 0.1, -0.15), // whisker gauche
-                new THREE.Vector3(0, 0, 0)          // base
+                AerodynamicsCalculator.POINTS.NEZ,
+                AerodynamicsCalculator.POINTS.WHISKER_GAUCHE,
+                AerodynamicsCalculator.POINTS.SPINE_BAS
             ],
-            area: 0.11
+            area: 0.11 // m² - Surface basse gauche
         },
         {
             vertices: [
-                new THREE.Vector3(0, 0.65, 0),      // nez
-                new THREE.Vector3(0.825, 0, 0),     // bord droit
-                new THREE.Vector3(0.4125, 0.1, -0.15) // whisker droit
+                AerodynamicsCalculator.POINTS.NEZ,
+                AerodynamicsCalculator.POINTS.BORD_DROIT,
+                AerodynamicsCalculator.POINTS.WHISKER_DROIT
             ],
-            area: 0.23
+            area: 0.23 // m² - Surface haute droite
         },
         {
             vertices: [
-                new THREE.Vector3(0, 0.65, 0),      // nez
-                new THREE.Vector3(0.4125, 0.1, -0.15), // whisker droit
-                new THREE.Vector3(0, 0, 0)          // base
+                AerodynamicsCalculator.POINTS.NEZ,
+                AerodynamicsCalculator.POINTS.WHISKER_DROIT,
+                AerodynamicsCalculator.POINTS.SPINE_BAS
             ],
-            area: 0.11
+            area: 0.11 // m² - Surface basse droite
         }
     ];
 
+    private static readonly TOTAL_AREA = 0.68; // m² - Surface totale V8
+
     private static cache = new AeroCache<string, {
-        forces: AerodynamicForces;
+        forces: IAerodynamicForces;
         metrics: AerodynamicMetrics;
         timestamp: number;
     }>();
 
     /**
-     * Calcule le facteur de stall basé sur l'angle d'attaque
-     */
-    private static calculateStallFactor(aoaDegrees: number): number {
-        if (aoaDegrees <= this.stallRecoveryAngle) {
-            return 1.0;
-        } else if (aoaDegrees >= this.stallAngle) {
-            return 0.4;
-        } else {
-            const factor = 1.0 - (aoaDegrees - this.stallRecoveryAngle) / (this.stallAngle - this.stallRecoveryAngle);
-            return Math.max(0.4, factor);
-        }
-    }
-
-    /**
-     * Calcule les forces aérodynamiques avec cache (inspiré de V9)
+     * PHYSIQUE ÉMERGENTE V8 - Calcule les forces par surface triangulaire
+     * 
+     * COMMENT ÇA MARCHE (exactement comme V8) :
+     * 1. On regarde chaque triangle du cerf-volant
+     * 2. On calcule sous quel angle le vent frappe ce triangle
+     * 3. Plus le vent frappe de face, plus la force est grande
+     * 4. On additionne toutes les forces pour avoir la force totale
+     * 
+     * POURQUOI C'EST IMPORTANT :
+     * Si un côté du kite reçoit plus de vent, il sera poussé plus fort
+     * Cette différence fait tourner le kite naturellement !
      */
     static calculateForces(
         apparentWind: THREE.Vector3,
-        kiteOrientation: THREE.Quaternion,
-        kiteVelocity?: THREE.Vector3
-    ): AerodynamicForces {
+        kiteOrientation: THREE.Quaternion
+    ): IAerodynamicForces {
         const windSpeed = apparentWind.length();
-        if (windSpeed < 1e-4) {
+        if (windSpeed < this.EPSILON) {
             return {
                 lift: new THREE.Vector3(),
                 drag: new THREE.Vector3(),
-                torque: new THREE.Vector3()
+                torque: new THREE.Vector3(),
+                apparent: new THREE.Vector3(),
+                coefficients: {
+                    cl: 0, cd: 0, cm: 0, aoa: 0, aoaDeg: 0
+                },
+                surfaces: []
             };
-        }
-
-        // Clé de cache
-        const cacheKey = AeroCache.makeKey(apparentWind, kiteOrientation);
-        const cached = this.cache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < 16) {
-            return cached.forces;
         }
 
         const windDir = apparentWind.clone().normalize();
         const dynamicPressure = 0.5 * this.rho * windSpeed * windSpeed;
 
-        // Calcul par face (comme V9)
-        let totalForce = new THREE.Vector3();
-        let totalTorque = new THREE.Vector3();
+        // Forces séparées pour gauche et droite (EXACTEMENT comme V8)
         let leftForce = new THREE.Vector3();
         let rightForce = new THREE.Vector3();
+        let totalForce = new THREE.Vector3();
+        let totalTorque = new THREE.Vector3();
 
+        // Données par surface pour le debug
+        const surfacesData: ISurfaceForces[] = [];
+
+        // On examine chaque triangle du cerf-volant un par un (EXACTEMENT V8)
         this.SURFACES.forEach((surface, index) => {
+            // 1. Calculer la normale de ce triangle
             const edge1 = surface.vertices[1].clone().sub(surface.vertices[0]);
             const edge2 = surface.vertices[2].clone().sub(surface.vertices[0]);
             const normaleLocale = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
 
+            // 2. Rotation de la normale selon l'orientation du kite
             const normaleMonde = normaleLocale.clone().applyQuaternion(kiteOrientation);
+
+            // 3. Angle entre vent et normale (cos de l'incidence)
             const facing = windDir.dot(normaleMonde);
-            const cosIncidence = Math.abs(facing);
+            const cosIncidence = Math.max(0, Math.abs(facing));
 
-            if (cosIncidence <= 1e-4) return;
-
-            // Force normale (pression)
-            const normalDirection = facing >= 0 ? normaleMonde.clone() : normaleMonde.clone().negate();
-            const normalMagnitude = dynamicPressure * surface.area * cosIncidence;
-            const forceNormale = normalDirection.clone().multiplyScalar(normalMagnitude);
-
-            // Traînée de profil
-            const profileDragMagnitude = dynamicPressure * surface.area * 0.02;
-            const profileDragForce = apparentWind.clone().normalize().multiplyScalar(-profileDragMagnitude);
-
-            // Traînée induite
-            const clampedCosIncidence = Math.max(1e-4, Math.min(1.0, Math.abs(cosIncidence)));
-            const sinIncidence = Math.sqrt(1.0 - clampedCosIncidence * clampedCosIncidence);
-            const inducedDragMagnitude = dynamicPressure * surface.area * 0.05 * sinIncidence * sinIncidence;
-
-            let inducedDragForce = new THREE.Vector3();
-            const windInLiftPlane = apparentWind.clone();
-            if (normalDirection.length() > 1e-4) {
-                windInLiftPlane.projectOnPlane(normalDirection.clone().normalize());
-            }
-            if (windInLiftPlane.length() > 1e-4) {
-                inducedDragForce = windInLiftPlane.normalize().multiplyScalar(-inducedDragMagnitude);
+            // Si le vent glisse sur le côté (angle = 0), pas de force
+            if (cosIncidence <= this.EPSILON) {
+                return;
             }
 
-            // Force totale sur cette face
-            const faceForce = forceNormale.clone()
-                .add(profileDragForce)
-                .add(inducedDragForce);
+            // 4. Force perpendiculaire à la surface (pression aérodynamique V8)
+            const normalDir = facing >= 0 ? normaleMonde.clone() : normaleMonde.clone().negate();
 
-            // Accumuler
-            totalForce.add(faceForce);
+            // 5. Intensité = pression dynamique × surface × cos(angle) [FORMULE V8]
+            const forceMagnitude = dynamicPressure * surface.area * cosIncidence;
+            const force = normalDir.multiplyScalar(forceMagnitude);
 
+            // 6. Centre de pression = centre géométrique du triangle
             const centre = surface.vertices[0].clone()
                 .add(surface.vertices[1])
                 .add(surface.vertices[2])
                 .divideScalar(3);
 
+            // Classification gauche/droite (EXACTEMENT V8)
+            const isLeft = centre.x < 0;  // Négatif = gauche, Positif = droite
+
+            if (isLeft) {
+                leftForce.add(force);  // Additionner à la force totale gauche
+            } else {
+                rightForce.add(force); // Additionner à la force totale droite
+            }
+
+            totalForce.add(force);
+
+            // Le couple V8 : force × bras de levier
             const centreWorld = centre.clone().applyQuaternion(kiteOrientation);
-            const torque = new THREE.Vector3().crossVectors(centreWorld, faceForce);
+            const torque = new THREE.Vector3().crossVectors(centreWorld, force);
             totalTorque.add(torque);
 
-            // Forces gauche/droite
-            const isLeft = centre.x < 0;
-            if (isLeft) {
-                leftForce.add(faceForce);
-            } else {
-                rightForce.add(faceForce);
-            }
+            // Stocker les données de cette surface pour le debug
+            // IMPORTANT: Le centre doit être en coordonnées mondiales absolues
+            // (il manquait l'ajout de la position du kite !)
+            surfacesData.push({
+                center: centreWorld.clone(), // Ce centre doit être ajusté dans simulationV10
+                normal: normalDir.clone(),
+                apparentWind: apparentWind.clone(),
+                lift: force.clone().multiplyScalar(this.liftScale), // Force = lift sur cette surface
+                drag: new THREE.Vector3(), // Pas de traînée séparée en V8
+                resultant: force.clone().multiplyScalar(this.liftScale)
+            });
         });
 
-        // Calcul de l'AoA global pour le stall factor
+        // DÉCOMPOSITION V8 : On retourne directement les forces totales
+        // La décomposition lift/drag classique n'est pas adaptée car le kite
+        // peut voler dans toutes les orientations (looping, vrilles, etc.)
+        const lift = totalForce.clone().multiplyScalar(this.liftScale);
+        const drag = new THREE.Vector3(); // Traînée intégrée dans les forces totales V8
+
+        // Mise à l'échelle du couple V8
+        const baseTotalMag = Math.max(this.EPSILON, totalForce.length());
+        const scaledTotalMag = lift.clone().add(drag).length();
+        const torqueScale = Math.max(0.1, Math.min(3, scaledTotalMag / baseTotalMag));
+
+        // Coefficients de base (pour compatibilité avec l'interface V10)
+        const windSpeedSq = windSpeed * windSpeed;
+        const coefficients: IAeroCoefficients = {
+            cl: windSpeedSq > this.EPSILON ? (lift.length() / (0.5 * this.rho * windSpeedSq * this.TOTAL_AREA)) : 0,
+            cd: 0, // Traînée intégrée en V8
+            cm: 0, // Coefficient de moment simplifié
+            aoa: 0, // Calculé séparément dans computeMetrics
+            aoaDeg: 0
+        };
+
+        return {
+            lift,
+            drag,
+            torque: totalTorque.multiplyScalar(torqueScale),
+            apparent: apparentWind.clone(),
+            coefficients,
+            surfaces: surfacesData // Nouveau : données par surface pour le debug
+        };
+    }
+
+    /**
+     * Calcule les métriques pour le debug (exactement V8)
+     */
+    static computeMetrics(
+        apparentWind: THREE.Vector3,
+        kiteOrientation: THREE.Quaternion
+    ): AerodynamicMetrics {
+        const windSpeed = apparentWind.length();
+        if (windSpeed < this.EPSILON) {
+            return { 
+                apparentSpeed: 0, 
+                liftMag: 0, 
+                dragMag: 0, 
+                lOverD: 0, 
+                aoaDeg: 0,
+                stallFactor: 1.0
+            };
+        }
+
+        const { lift } = this.calculateForces(apparentWind, kiteOrientation);
+        const liftMag = lift.length();
+        const dragMag = 0; // Traînée intégrée dans les forces totales V8
+        const lOverD = 0; // Ratio non applicable pour un cerf-volant V8
+
+        // Calcul approximatif de l'angle d'attaque V8
+        const windDir = apparentWind.clone().normalize();
         let weightedNormal = new THREE.Vector3();
-        let totalArea = 0;
 
         this.SURFACES.forEach((surface) => {
             const edge1 = surface.vertices[1].clone().sub(surface.vertices[0]);
@@ -192,89 +254,28 @@ export class AerodynamicsCalculator {
                 .normalize()
                 .applyQuaternion(kiteOrientation);
 
-            weightedNormal.add(normaleMonde.multiplyScalar(surface.area));
-            totalArea += surface.area;
+            const facing = windDir.dot(normaleMonde);
+            const cosIncidence = Math.max(0, Math.abs(facing));
+
+            const normalDir = facing >= 0 ? normaleMonde : normaleMonde.clone().negate();
+            weightedNormal.add(normalDir.multiplyScalar(surface.area * cosIncidence));
         });
 
-        if (totalArea > 1e-4) {
-            weightedNormal.divideScalar(totalArea).normalize();
+        let aoaDeg = 0;
+        if (weightedNormal.lengthSq() > this.EPSILON * this.EPSILON) {
+            const eff = weightedNormal.normalize();
+            const dot = Math.max(-1, Math.min(1, eff.dot(windDir)));
+            const phiDeg = Math.acos(dot) * 180 / Math.PI;
+            aoaDeg = Math.max(0, 90 - phiDeg);
         }
 
-        const dotProduct = Math.max(-1, Math.min(1, windDir.dot(weightedNormal)));
-        const aoaDeg = Math.abs(Math.acos(Math.abs(dotProduct)) * 180 / Math.PI);
-        const stallFactor = this.calculateStallFactor(aoaDeg);
-
-        // Décomposition lift/drag avec stall factor
-        const windDirection = windDir.clone();
-        const forceParallelToWind = totalForce.clone().projectOnVector(windDirection);
-        const forcePerpendicularToWind = totalForce.clone().sub(forceParallelToWind);
-
-        const lift = forcePerpendicularToWind.multiplyScalar(this.liftScale * stallFactor);
-        const drag = forceParallelToWind.multiplyScalar(-1).multiplyScalar(this.dragScale);
-
-        const result: AerodynamicForces = {
-            lift,
-            drag,
-            torque: totalTorque,
-            leftForce,
-            rightForce
-        };
-
-        // Calcul des métriques
-        const metrics: AerodynamicMetrics = {
-            apparentSpeed: windSpeed,
-            liftMag: lift.length(),
-            dragMag: drag.length(),
-            lOverD: drag.length() > 1e-4 ? lift.length() / drag.length() : 0,
+        return { 
+            apparentSpeed: windSpeed, 
+            liftMag, 
+            dragMag, 
+            lOverD, 
             aoaDeg,
-            stallFactor
-        };
-
-        // Mettre en cache
-        this.cache.set(cacheKey, {
-            forces: result,
-            metrics,
-            timestamp: Date.now()
-        });
-
-        return result;
-    }
-
-    /**
-     * Calcule les métriques aérodynamiques
-     */
-    static computeMetrics(
-        apparentWind: THREE.Vector3,
-        kiteOrientation: THREE.Quaternion
-    ): AerodynamicMetrics {
-        const windSpeed = apparentWind.length();
-        if (windSpeed < 1e-4) {
-            return {
-                apparentSpeed: 0,
-                liftMag: 0,
-                dragMag: 0,
-                lOverD: 0,
-                aoaDeg: 0,
-                stallFactor: 1.0
-            };
-        }
-
-        const cacheKey = AeroCache.makeKey(apparentWind, kiteOrientation);
-        const cached = this.cache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < 16) {
-            return cached.metrics;
-        }
-
-        // Si pas en cache, calculer
-        this.calculateForces(apparentWind, kiteOrientation);
-        const newCached = this.cache.get(cacheKey);
-        return newCached ? newCached.metrics : {
-            apparentSpeed: 0,
-            liftMag: 0,
-            dragMag: 0,
-            lOverD: 0,
-            aoaDeg: 0,
-            stallFactor: 1.0
+            stallFactor: 1.0 // V8 n'a pas de stall factor
         };
     }
 

@@ -26,8 +26,8 @@ export class Pilot3D {
     head.position.y = 1.7;
     this.group.add(head);
 
-    // Position du pilote
-    this.group.position.set(0, 0, -3);
+    // Position du pilote à l'origine
+    this.group.position.set(0, 0, 0);
   }
 
   get object3d(): THREE.Object3D { return this.group; }

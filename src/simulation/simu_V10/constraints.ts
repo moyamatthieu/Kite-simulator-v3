@@ -14,38 +14,64 @@ export class GroundCollisionSystem {
      * Applique les contraintes de collision avec le sol
      */
     applyGroundConstraints(kite: THREE.Object3D, velocity: THREE.Vector3): void {
-        // Vérifier si le kite touche le sol
-        if (kite.position.y <= this.groundLevel) {
-            // Calculer la pénétration
-            const penetration = this.groundLevel - kite.position.y;
-
-            if (penetration > this.penetrationThreshold) {
-                // Correction de position (éviter la pénétration)
-                kite.position.y = this.groundLevel;
-
-                // Appliquer la friction et le rebond
-                if (velocity.y < 0) {
-                    // Composante verticale : rebond
-                    velocity.y *= -this.restitution;
-
-                    // Composantes horizontales : friction
-                    velocity.x *= this.friction;
-                    velocity.z *= this.friction;
-
-                    // Si la vitesse verticale devient trop faible, l'annuler complètement
-                    if (Math.abs(velocity.y) < 0.01) {
-                        velocity.y = 0;
-                    }
-                }
+        // Calculer le point le plus bas du cerf-volant en tenant compte de sa rotation
+        const lowestPoint = this.getLowestPoint(kite);
+        const minHeight = this.groundLevel + 0.05; // Marge de sécurité
+        
+        if (lowestPoint <= minHeight) {
+            // Calculer de combien il faut remonter le kite pour que son point le plus bas soit au niveau du sol
+            const correctionY = minHeight - lowestPoint;
+            kite.position.y += correctionY;
+            
+            // Si la vitesse va vers le bas, l'arrêter complètement
+            if (velocity.y < 0) {
+                velocity.y = 0; // Arrêt immédiat, pas de rebond
             }
+            
+            // Appliquer la friction au sol
+            velocity.x *= this.friction;
+            velocity.z *= this.friction;
+            
+            // Debug silencieux - logs supprimés pour éviter le spam
         }
+    }
+
+    /**
+     * Calcule le point le plus bas du cerf-volant en tenant compte de sa rotation
+     */
+    private getLowestPoint(kite: THREE.Object3D): number {
+        // Points du cerf-volant en coordonnées locales (basés sur Kite2.ts)
+        const localPoints = [
+            new THREE.Vector3(0, 0, 0),         // SPINE_BAS (centre)
+            new THREE.Vector3(0, 0.65, 0),      // NEZ (nez)
+            new THREE.Vector3(-0.825, 0, 0),    // BORD_GAUCHE
+            new THREE.Vector3(0.825, 0, 0),     // BORD_DROIT
+            new THREE.Vector3(-0.4125, 0.1, -0.15), // WHISKER_GAUCHE
+            new THREE.Vector3(0.4125, 0.1, -0.15),  // WHISKER_DROIT
+        ];
+        
+        let lowestY = Infinity;
+        
+        // Transformer chaque point local en coordonnées mondiales et trouver le plus bas
+        localPoints.forEach(localPoint => {
+            const worldPoint = localPoint.clone()
+                .applyQuaternion(kite.quaternion)  // Appliquer la rotation
+                .add(kite.position);               // Appliquer la position
+            
+            if (worldPoint.y < lowestY) {
+                lowestY = worldPoint.y;
+            }
+        });
+        
+        return lowestY;
     }
 
     /**
      * Vérifie si le kite est au sol
      */
     isOnGround(kite: THREE.Object3D): boolean {
-        return kite.position.y <= this.groundLevel + this.penetrationThreshold;
+        const lowestPoint = this.getLowestPoint(kite);
+        return lowestPoint <= this.groundLevel + this.penetrationThreshold;
     }
 
     /**

@@ -78,9 +78,9 @@ export class Kite2 extends StructuredObject implements ICreatable {
       ['WHISKER_GAUCHE', [-width / 4, 0.1, -depth]],
       ['WHISKER_DROIT', [width / 4, 0.1, -depth]],
 
-      // Points de contrôle (bridage) - Position FIXE
-      ['CTRL_GAUCHE', [-width * 0.15, height * 0.4, 0.4]],  // Plus bas et plus proche
-      ['CTRL_DROIT', [width * 0.15, height * 0.4, 0.4]],
+      // Points de contrôle (bridage) - Position EXACTEMENT comme V8
+      ['CTRL_GAUCHE', [-0.25, 0.3, 0.4]],  // Position fixe V8 qui fonctionne
+      ['CTRL_DROIT', [0.25, 0.3, 0.4]],    // Position fixe V8 qui fonctionne
 
       // Points d'ancrage des brides (sur l'aile du cerf-volant) - 6 brides alignées sur la structure
       ['BRIDE_GAUCHE_A', [0, height, 0]],   // Ancrage gauche haut (position du nez)

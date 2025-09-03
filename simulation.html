@@ -570,25 +570,14 @@
 
     <script type="module" src="/src/simulation/simulationLoader.ts"></script>
     <script type="module">
-        // Chargement dynamique de l'UI en fonction de la simulation active
+        // Initialisation simplifiée avec l'interface unifiée V10
         const initUI = async () => {
             const appContainer = document.getElementById('app');
             if (!appContainer) return;
 
-            // Déterminer le chemin UI à partir du module de simulation courant
-            const loader = window.simulationLoader;
-            let uiPath = '/src/ui/SimulationUI.ts'; // fallback global
-            try {
-                const current = loader?.getCurrentSimulation?.();
-                const mod = current?.module;
-                if (mod && mod.UI_MODULE_PATH) {
-                    uiPath = mod.UI_MODULE_PATH;
-                }
-            } catch {}
-
-            const { SimulationUI } = await import(uiPath);
-            const simulationUI = new SimulationUI(appContainer);
-            window.simulationUI = simulationUI;
+            // Le simulationLoader initialise déjà l'UniversalUI
+            // Plus besoin de chargement dynamique d'interface
+            console.log('✅ Interface V10 unifiée prête');
 
             // Fade in
             setTimeout(() => { document.body.style.opacity = '1'; }, 100);

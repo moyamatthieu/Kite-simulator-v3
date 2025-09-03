@@ -3,9 +3,11 @@
  * 
  * Ce module détecte automatiquement toutes les versions de simulation disponibles
  * et permet de basculer entre elles dynamiquement.
+ * Utilise l'interface universelle V10 pour toutes les simulations.
  */
 
 import * as THREE from 'three';
+import { UniversalUI, initializeUniversalUI } from './UniversalUI.js';
 
 // Interface pour les informations d'une simulation
 interface SimulationInfo {
@@ -26,15 +28,21 @@ export interface ISimulation {
 
 /**
  * Gestionnaire de chargement et de basculement entre simulations
+ * Avec interface universelle V10
  */
 export class SimulationLoader {
     private simulations: Map<string, SimulationInfo> = new Map();
     private currentSimulation: SimulationInfo | null = null;
     private container: HTMLElement;
     private onSimulationChange?: (info: SimulationInfo) => void;
+    private universalUI!: UniversalUI;
 
     constructor(container: HTMLElement) {
         this.container = container;
+        
+        // Initialiser l'interface universelle V10
+        this.universalUI = initializeUniversalUI(container);
+        
         this.discoverSimulations();
     }
 
@@ -175,6 +183,9 @@ export class SimulationLoader {
             }
 
             this.currentSimulation = info;
+
+            // Notifier l'interface universelle du changement de version
+            this.universalUI.setSimulationVersion(version);
 
             // Mettre à jour l'URL
             const url = new URL(window.location.href);

@@ -1,5 +1,5 @@
 /**
- * SimulationV10.ts — Version modulaire (petits fichiers par classe)
+ * SimulationV10.ts — Version modulaire
  */
 
 import * as THREE from 'three';
@@ -53,7 +53,8 @@ export class SimulationAppV10 {
     this.container = container;
     this.rm = new RenderManager(this.container);
     this.renderer = this.rm.renderer;
-    this.wind = new WindSimulator(defaultParams.windSpeed, defaultParams.windDirectionDeg);
+    // V8 : defaultParams.windSpeed est en km/h, convertir en m/s
+    this.wind = new WindSimulator(defaultParams.windSpeed / 3.6, defaultParams.windDirectionDeg);
     this.input = new InputHandler();
     this.control = new ControlBarManager();
     this.environment = new Environment();
@@ -68,10 +69,19 @@ export class SimulationAppV10 {
     this.debugOverlay.setVisible(this.debugVisible);
     this.vectorLegend.setVisible(this.debugVisible);
 
-    // Objet Kite
+    // Objet Kite avec position initiale calculée comme V8
     this.kite = new Kite2({ sailColor: '#ff5555' });
-    this.kite.position.set(0, 7, -8); // Position plus haute et reculée comme V8
-    this.kite.rotation.set(0, 0, 0); // Orientation neutre
+
+    // Position initiale V8 : calculée géométriquement
+    const pilotPos = this.pilot.object3d.position.clone();
+    const kiteY = 7; // Hauteur V8 éprouvée
+    const initialDistance = this.baseLineLength * 0.95;
+    const dy = kiteY - pilotPos.y;
+    const horizontal = Math.max(0.1, Math.sqrt(Math.max(0, initialDistance * initialDistance - dy * dy)));
+
+    this.kite.position.set(pilotPos.x, kiteY, pilotPos.z - horizontal);
+    this.kite.rotation.set(0, 0, 0);
+    this.kite.quaternion.identity();
 
     // Moteur
     this.engine = new PhysicsEngine(this.wind);
@@ -84,8 +94,9 @@ export class SimulationAppV10 {
     this.rm.scene.add(this.lines.object3d);
     this.rm.scene.add(this.debugVectors.object3d as THREE.Object3D);
 
-    // Positionner la barre devant le pilote
-    this.bar.object3d.position.add(this.pilot.object3d.position);
+    // Positionner la barre aux mains du pilote (pilote à 1,0,0 + hauteur des mains)
+    const pilotPosition = this.pilot.object3d.position.clone();
+    this.bar.object3d.position.set(pilotPosition.x, pilotPosition.y + 1.4, pilotPosition.z);
 
     this.loop();
     this.wireUI();
@@ -120,7 +131,7 @@ export class SimulationAppV10 {
     // Appliquer les contraintes physiques (sol et limites)
     const constraintStatus = this.engine.getConstraintStatus(this.kite);
 
-    // Analyse de vol (comme V9)
+    // Analyse de vol
     this.flightAnalyzer.addSample(
       this.kite.position,
       this.engine.getVelocity(),
@@ -165,16 +176,31 @@ export class SimulationAppV10 {
     this.leftTension = Math.round(metrics.leftTension || 0);
     this.rightTension = Math.round(metrics.rightTension || 0);
 
-    this.debugVectors.update(this.kite.getWorldPosition(new THREE.Vector3()), {
-      velocity: vel,
-      apparentWind: apparent,
-      globalWind: windVec,
-      lift: aero.lift,
-      drag: aero.drag,
-      aoaDeg: metrics.aoaDeg,
-      isStalling: metrics.stallFactor < 0.95,
+    // Positionner les vecteurs là où les forces s'appliquent réellement
+    const kitePosition = this.kite.position; // SPINE_BAS - où les forces résultantes sont appliquées
+    const centerOfMassLocal = new THREE.Vector3(0, 0.325, 0); // Centre de masse physique
+    const centerOfMassWorld = centerOfMassLocal.clone()
+      .applyQuaternion(this.kite.quaternion)
+      .add(this.kite.position);
+
+    // Calculer le centre de pression aérodynamique (moyenne pondérée des surfaces)
+    const centerOfPressureLocal = new THREE.Vector3(0, 0.4, 0); // Approximation vers l'avant
+    const centerOfPressureWorld = centerOfPressureLocal.clone()
+      .applyQuaternion(this.kite.quaternion)
+      .add(this.kite.position);
+
+    // Ajuster les centres des surfaces pour les coordonnées mondiales absolues
+    const adjustedSurfaces = (aeroData.surfaces || []).map((surface: any) => ({
+      ...surface,
+      center: surface.center.clone().add(this.kite.position) // Ajouter la position du kite !
+    }));
+
+    this.debugVectors.update(this.kite.position, {
+      globalVelocity: vel,
+      surfaceData: adjustedSurfaces, // Centres corrigés en coordonnées mondiales
       leftLine: leftKite ? { from: leftBar, to: (leftKite as THREE.Vector3).clone().applyMatrix4(this.kite.matrixWorld) } : undefined,
       rightLine: rightKite ? { from: rightBar, to: (rightKite as THREE.Vector3).clone().applyMatrix4(this.kite.matrixWorld) } : undefined,
+      isStalling: metrics.stallFactor < 0.95,
     });
 
     // Aucun asservissement d'orientation: réaction pure aux forces et contraintes
@@ -239,7 +265,7 @@ export class SimulationAppV10 {
       windSpeed.dataset.bound = '1';
       const sync = () => {
         const kmh = parseFloat(windSpeed.value || '0');
-        const ms = kmh / 3.6;
+        const ms = kmh / 3.6; // Conversion V8 : km/h → m/s
         const dir = windDir ? parseFloat(windDir.value || '0') : 0;
         this.wind.set(ms, dir);
         const label = document.getElementById('wind-speed-value');
@@ -254,7 +280,7 @@ export class SimulationAppV10 {
       const syncDir = () => {
         const dir = parseFloat(windDir.value || '0');
         const speedInput = document.getElementById('wind-speed') as HTMLInputElement | null;
-        const ms = speedInput ? (parseFloat(speedInput.value || '0') / 3.6) : defaultParams.windSpeed;
+        const ms = speedInput ? (parseFloat(speedInput.value || '0') / 3.6) : (defaultParams.windSpeed / 3.6);
         this.wind.set(ms, dir);
         const label = document.getElementById('wind-direction-value');
         if (label) label.textContent = `${Math.round(dir)}°`;
@@ -300,8 +326,17 @@ export class SimulationAppV10 {
   }
 
   private resetSimulation(): void {
-    this.kite.position.set(0, 1.2, 0);
+    // Position initiale V8 : calculée géométriquement par rapport au pilote
+    const pilot = this.pilot.object3d.position.clone();
+    const kiteY = 7; // Hauteur V8 éprouvée (7m au-dessus du sol)
+    const initialDistance = this.baseLineLength * 0.95; // Légèrement moins tendu
+    const dy = kiteY - pilot.y;
+    const horizontal = Math.max(0.1, Math.sqrt(Math.max(0, initialDistance * initialDistance - dy * dy)));
+
+    this.kite.position.set(pilot.x, kiteY, pilot.z - horizontal);
     this.kite.rotation.set(0, 0, 0);
+    this.kite.quaternion.identity();
+
     this.engine.reset();
     this.engine.setLineLength(this.baseLineLength); // Restaurer la longueur des lignes
     (window as any).simulationUI?.updateRealTimeValues?.({ physicsStatus: 'Active' });

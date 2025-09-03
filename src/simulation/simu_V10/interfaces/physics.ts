@@ -24,6 +24,19 @@ export interface IAerodynamicForces {
     torque: THREE.Vector3;
     apparent: THREE.Vector3;
     coefficients: IAeroCoefficients;
+    surfaces?: ISurfaceForces[]; // Nouveau : données par surface pour le debug
+}
+
+/**
+ * Forces sur une surface individuelle du kite
+ */
+export interface ISurfaceForces {
+    center: THREE.Vector3;        // Centre de la surface
+    normal: THREE.Vector3;        // Normale de la surface
+    apparentWind: THREE.Vector3;  // Vent apparent sur cette surface
+    lift: THREE.Vector3;         // Portance sur cette surface
+    drag: THREE.Vector3;         // Traînée sur cette surface
+    resultant: THREE.Vector3;    // Force résultante sur cette surface
 }
 
 /**

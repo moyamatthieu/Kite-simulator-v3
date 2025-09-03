@@ -38,15 +38,119 @@ export class UIManager {
   private initializeBaseStyles(): void {
     const style = document.createElement('style');
     style.textContent = `
-      .ui-panel { position: absolute; background: linear-gradient(135deg, rgba(0,0,0,.9), rgba(20,20,40,.9)); backdrop-filter: blur(12px); border-radius: 12px; border: 1px solid rgba(102,126,234,.3); box-shadow: 0 8px 32px rgba(0,0,0,.3), 0 2px 8px rgba(102,126,234,.1); color: white; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; transition: all .3s cubic-bezier(.4,0,.2,1); overflow: hidden; z-index: 1000; }
-      .ui-panel:hover { border-color: rgba(102,126,234,.6); box-shadow: 0 12px 40px rgba(0,0,0,.4), 0 4px 12px rgba(102,126,234,.2); transform: translateY(-2px); }
-      .ui-panel-header { background: linear-gradient(90deg, rgba(102,126,234,.8), rgba(118,75,162,.8)); padding: 8px 12px; font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; cursor: move; user-select: none; }
-      .ui-panel-title { color: white; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
-      .ui-panel-controls { display: flex; gap: 5px; }
-      .ui-panel-btn { background: rgba(255,255,255,.2); border: none; color: white; width: 20px; height: 20px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; transition: all .2s; }
-      .ui-panel-btn:hover { background: rgba(255,255,255,.3); transform: scale(1.1); }
-      .ui-panel-content { padding: 12px; font-size: 12px; line-height: 1.5; max-height: calc(100% - 30px); overflow-y: auto; }
-      .ui-panel.collapsed { height: 30px !important; }
+      .ui-panel { 
+        position: absolute; 
+        background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.95)); 
+        backdrop-filter: blur(16px); 
+        border-radius: 16px; 
+        border: 1px solid rgba(102,126,234,0.3); 
+        box-shadow: 0 10px 40px rgba(0,0,0,0.4), 0 4px 12px rgba(102,126,234,0.1), inset 0 1px 0 rgba(255,255,255,0.1); 
+        color: white; 
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; 
+        transition: all 0.4s cubic-bezier(0.4,0,0.2,1); 
+        overflow: hidden; 
+        z-index: 1000;
+        will-change: transform;
+      }
+      .ui-panel:hover { 
+        border-color: rgba(102,126,234,0.6); 
+        box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 6px 16px rgba(102,126,234,0.2), inset 0 1px 0 rgba(255,255,255,0.15); 
+        transform: translateY(-3px) scale(1.01); 
+      }
+      .ui-panel-header { 
+        background: linear-gradient(90deg, rgba(102,126,234,0.9), rgba(118,75,162,0.9)); 
+        padding: 10px 16px; 
+        font-weight: 600; 
+        font-size: 13px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        cursor: move; 
+        user-select: none;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        position: relative;
+        overflow: hidden;
+      }
+      .ui-panel-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        transform: translateX(-100%);
+        transition: transform 0.6s;
+      }
+      .ui-panel:hover .ui-panel-header::before {
+        transform: translateX(100%);
+      }
+      .ui-panel-title { 
+        color: white; 
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      .ui-panel-controls { 
+        display: flex; 
+        gap: 6px; 
+        z-index: 10;
+        position: relative;
+      }
+      .ui-panel-btn { 
+        background: rgba(255,255,255,0.2); 
+        border: none; 
+        color: white; 
+        width: 22px; 
+        height: 22px; 
+        border-radius: 6px; 
+        cursor: pointer; 
+        font-size: 12px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        backdrop-filter: blur(4px);
+      }
+      .ui-panel-btn:hover { 
+        background: rgba(255,255,255,0.35); 
+        transform: scale(1.15);
+        box-shadow: 0 2px 8px rgba(255,255,255,0.2);
+      }
+      .ui-panel-btn:active {
+        transform: scale(0.95);
+      }
+      .ui-panel-content { 
+        padding: 16px; 
+        font-size: 12px; 
+        line-height: 1.6; 
+        max-height: calc(100% - 44px); 
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(102,126,234,0.5) transparent;
+      }
+      .ui-panel-content::-webkit-scrollbar {
+        width: 6px;
+      }
+      .ui-panel-content::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .ui-panel-content::-webkit-scrollbar-thumb {
+        background: rgba(102,126,234,0.5);
+        border-radius: 3px;
+      }
+      .ui-panel-content::-webkit-scrollbar-thumb:hover {
+        background: rgba(102,126,234,0.7);
+      }
+      .ui-panel.collapsed { 
+        height: 44px !important; 
+      }
+      .ui-panel.collapsed .ui-panel-content {
+        display: none;
+      }
+      .ui-panel.no-header .ui-panel-content {
+        max-height: 100%;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -80,6 +184,7 @@ export class UIManager {
     const panel = document.createElement('div');
     panel.className = `ui-panel ${config.className || ''}`;
     panel.id = config.id;
+    panel.setAttribute('data-v10', 'true'); // Marquer comme panneau V10
     const header = document.createElement('div');
     header.className = 'ui-panel-header';
     const title = document.createElement('span');

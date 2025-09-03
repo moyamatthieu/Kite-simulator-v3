@@ -24,6 +24,12 @@ export class Environment {
     (grid.material as THREE.Material).opacity = 0.5;
     (grid.material as THREE.Material).transparent = true;
     this.group.add(grid);
+
+    // Repère 3D (axes X, Y, Z)
+    const axesHelper = new THREE.AxesHelper(2); // Taille 2m
+    axesHelper.position.set(1, 0, 0); // Position à (1,0,0) comme demandé
+    axesHelper.name = 'AxesHelper';
+    this.group.add(axesHelper);
   }
 
   get object3d(): THREE.Object3D { return this.group; }
