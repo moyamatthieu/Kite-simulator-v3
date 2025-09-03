@@ -44,10 +44,10 @@ export class SimulationUI {
             collapsible: true,
             content: `
                 <div style="color: #667eea; line-height: 1.6;">
-                    <div><strong>SimulationV9</strong> - Physique réaliste avec traînée par surface</div>
-                    <div><strong>Build:</strong> 2025.09.02 | <strong>Moteur:</strong> Three.js r160 + Vite</div>
-                    <div><strong>Nouvelle fonctionnalité:</strong> ✅ Forces de traînée individuelles</div>
-                    <div><strong>Performance:</strong> ⚡ Optimisations avec cache physique</div>
+                    <div><strong>SimulationV10</strong> - Architecture modulaire (système, pilote, barre, lignes)</div>
+                    <div><strong>Moteur:</strong> Three.js r160 + Vite</div>
+                    <div><strong>UI:</strong> Panneaux auto‑organisés, sans superpositions</div>
+                    <div><strong>Monde:</strong> Sol vert, ciel, lumières réalistes</div>
                 </div>
             `
         };
@@ -185,7 +185,7 @@ export class SimulationUI {
             priority: 9,
             content: `
                 <div style="line-height: 1.8; color: #fff;">
-                    <div><strong>Cerf-volant:</strong> <span id="kite-model">Delta V9</span></div>
+                    <div><strong>Cerf-volant:</strong> <span id="kite-model">Delta V10</span></div>
                     <div><strong>Vent:</strong> <span id="wind-speed-display">12</span> km/h</div>
                     <div><strong>FPS:</strong> <span id="fps">60</span></div>
                     <div><strong>Physique:</strong> <span id="physics-status" style="color: #51cf66;">Active</span></div>

@@ -398,7 +398,9 @@ const CONFIG = {
     },
     aero: {
         liftScale: 2.2,             // Portance modérée pour vol stable et réaliste
-        dragScale: 0.7,             // Traînée légèrement augmentée pour équilibre
+        dragScale: 0.3,             // Traînée réduite car maintenant calculée correctement
+        profileDragCoeff: 0.02,     // Coefficient de traînée de profil (forme)
+        inducedDragCoeff: 0.05,     // Coefficient de traînée induite (tourbillons)
         stabilityFactor: 0.4        // Facteur de stabilité augmenté
     },
     kite: {
@@ -826,7 +828,7 @@ class AerodynamicsCalculator {
         if (Math.random() < 0.1) this.cleanCache();
 
         const windSpeed = apparentWind.length();
-        if (windSpeed < 0.1) {
+        if (windSpeed < PhysicsConstants.EPSILON) {
             return {
                 lift: new THREE.Vector3(),
                 drag: new THREE.Vector3(),
@@ -868,14 +870,38 @@ class AerodynamicsCalculator {
             const normalMagnitude = dynamicPressure * surface.area * cosIncidence;
             const forceNormale = normalDirection.clone().multiplyScalar(normalMagnitude);
 
-            // 2. FORCE DE TRAÎNÉE (parallèle au vent, opposée au mouvement)
-            // La traînée résiste au mouvement dans la direction du vent
-            const dragDirection = windDir.clone().negate(); // Opposée au vent
-            const dragMagnitude = dynamicPressure * surface.area * cosIncidence * CONFIG.aero.dragScale;
-            const dragForce = dragDirection.clone().multiplyScalar(dragMagnitude);
+            // 2. FORCES DE TRAÎNÉE (physiquement correctes)
 
-            // 3. FORCE TOTALE = normale + traînée
-            const force = forceNormale.add(dragForce);
+            // 2a. Traînée de profil (résistance de forme - opposée au vent apparent)
+            const apparentWindDirection = apparentWind.clone().normalize();
+            const profileDragMagnitude = dynamicPressure * surface.area * CONFIG.aero.profileDragCoeff;
+            const profileDragForce = apparentWindDirection.clone().multiplyScalar(-profileDragMagnitude);
+
+            // 2b. Traînée induite (due à la portance - perpendiculaire à la portance)
+            // Plus l'angle d'attaque est fort, plus la traînée induite augmente
+            const liftDirection = normalDirection.clone();
+            const windInLiftPlane = apparentWindDirection.clone();
+
+            // Protection contre les vecteurs nuls
+            if (liftDirection.length() > PhysicsConstants.EPSILON) {
+                windInLiftPlane.projectOnPlane(liftDirection.clone().normalize());
+            }
+
+            // Calcul sécurisé de l'angle d'attaque pour la traînée induite
+            const clampedCosIncidence = Math.max(PhysicsConstants.EPSILON, Math.min(1.0, Math.abs(cosIncidence)));
+            const sinIncidence = Math.sqrt(1.0 - clampedCosIncidence * clampedCosIncidence);
+            const inducedDragMagnitude = dynamicPressure * surface.area * CONFIG.aero.inducedDragCoeff *
+                sinIncidence * sinIncidence;
+
+            let inducedDragForce = new THREE.Vector3();
+            if (windInLiftPlane.length() > PhysicsConstants.EPSILON) {
+                inducedDragForce = windInLiftPlane.normalize().multiplyScalar(-inducedDragMagnitude);
+            }
+
+            // 3. FORCE TOTALE = normale + traînée de profil + traînée induite
+            const force = forceNormale.clone()
+                .add(profileDragForce)
+                .add(inducedDragForce);
 
             const centre = surface.vertices[0].clone()
                 .add(surface.vertices[1])
@@ -926,10 +952,26 @@ class AerodynamicsCalculator {
         const aoaDeg = Math.abs(Math.acos(Math.abs(dotProduct)) * 180 / Math.PI);
         const stallFactor = this.calculateStallFactor(aoaDeg);
 
-        // MODÈLE V8 QUI MARCHAIT : forces normales uniquement
-        // La traînée est intégrée naturellement dans les forces normales
-        const lift = totalForce.clone().multiplyScalar(CONFIG.aero.liftScale * stallFactor);
-        const drag = new THREE.Vector3(); // Traînée intégrée dans les forces totales (comme V8)
+        // NOUVEAU MODÈLE V9 : Séparation physiquement correcte lift/drag
+        // Décomposition des forces totales en portance et traînée
+
+        // La portance est la composante perpendiculaire au vent apparent
+        const windDirection = windDir.clone();
+        const liftComponent = new THREE.Vector3();
+        const dragComponent = new THREE.Vector3();
+
+        // Projection des forces totales sur les axes lift/drag
+        const forceParallelToWind = totalForce.clone().projectOnVector(windDirection);
+        const forcePerpendicularToWind = totalForce.clone().sub(forceParallelToWind);
+
+        // Portance = composante perpendiculaire amplifiée
+        const lift = forcePerpendicularToWind.multiplyScalar(CONFIG.aero.liftScale * stallFactor);
+
+        // Traînée = composante parallèle (dans le sens opposé au vent)
+        const drag = forceParallelToWind.multiplyScalar(-1); // Opposée au mouvement
+
+        // Application du facteur de traînée global
+        drag.multiplyScalar(CONFIG.aero.dragScale);
 
         const baseTotalMag = Math.max(PhysicsConstants.EPSILON, totalForce.length());
         const scaledTotalMag = lift.length();
@@ -2634,7 +2676,7 @@ export class SimulationAppV9 {
      */
     private setupModernUICallbacks(): void {
         const ui = (window as any).simulationUI;
-        
+
         // Configurer les événements des contrôles
         setTimeout(() => {
             // Reset button
@@ -3439,7 +3481,7 @@ export class SimulationAppV9 {
                 if (typeof window !== 'undefined' && (window as any).simulationUI) {
                     const ui = (window as any).simulationUI;
                     const fps = Math.round(1 / this.clock.getDelta());
-                    
+
                     ui.updateRealTimeValues({
                         fps: fps,
                         windSpeed: Math.round(windSpeed * 3.6), // Conversion m/s -> km/h

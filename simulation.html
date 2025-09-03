@@ -97,7 +97,7 @@
             border-bottom: 2px solid rgba(102, 126, 234, 0.3);
             padding-bottom: 8px;
         }
-        
+
         #sim-info div {
             margin: 8px 0;
             display: flex;
@@ -153,8 +153,15 @@
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
         }
 
         /* Panneau de contrôle du vent amélioré */
@@ -247,23 +254,26 @@
         body.debug-mode .physics-debug {
             display: block;
         }
-        
+
         .debug-main {
             margin-bottom: 5px;
         }
-        
+
         .debug-legend {
             font-size: 11px;
             opacity: 0.9;
         }
-        
+
         /* Panneau de version */
         .version-panel {
             position: absolute;
-            bottom: 200px;  /* Plus d'espace avec le panneau d'état */
+            bottom: 200px;
+            /* Plus d'espace avec le panneau d'état */
             left: 10px;
-            width: 450px;   /* Plus large pour éviter la troncature */
-            height: 100px;  /* Plus haut pour tout afficher */
+            width: 450px;
+            /* Plus large pour éviter la troncature */
+            height: 100px;
+            /* Plus haut pour tout afficher */
             padding: 12px 18px;
             background: linear-gradient(135deg, rgba(0, 0, 0, 0.92), rgba(20, 20, 60, 0.92));
             color: #667eea;
@@ -275,29 +285,31 @@
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(102, 126, 234, 0.2);
             overflow: hidden;
         }
-        
+
         .version-content {
             line-height: 1.5;
             color: #8fa4f3;
             text-shadow: 0 0 4px rgba(102, 126, 234, 0.4);
         }
-        
+
         .version-content div {
             margin: 2px 0;
         }
-        
+
         .version-content div:first-child {
             color: #667eea;
             font-weight: bold;
         }
-        
+
         /* Log périodique - État du système */
         .status-log {
             position: absolute;
             bottom: 10px;
             left: 10px;
-            width: 450px;   /* Même largeur que le panneau version */
-            height: 170px;  /* Légèrement plus haut */
+            width: 450px;
+            /* Même largeur que le panneau version */
+            height: 170px;
+            /* Légèrement plus haut */
             padding: 18px;
             background: linear-gradient(135deg, rgba(0, 0, 0, 0.92), rgba(10, 30, 10, 0.92));
             color: #00ff88;
@@ -309,7 +321,7 @@
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 255, 136, 0.15);
             overflow-y: auto;
         }
-        
+
         .log-header {
             font-size: 13px;
             font-weight: bold;
@@ -322,16 +334,233 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         .log-content {
             line-height: 1.5;
             word-break: break-all;
             color: #00ff88;
             text-shadow: 0 0 3px rgba(0, 255, 136, 0.3);
         }
-        
+
         .log-content .warning {
             color: #ffaa00;
+        }
+
+        /* Media queries pour s'adapter aux petites fenêtres */
+        @media (max-width: 1200px) {
+            .mode-selector {
+                padding: 8px;
+                gap: 8px;
+            }
+
+            .mode-selector label {
+                font-size: 12px;
+            }
+
+            .mode-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+                min-width: 60px;
+            }
+
+            #sim-info {
+                padding: 15px;
+                min-width: 180px;
+                font-size: 13px;
+            }
+
+            .wind-controls {
+                width: 200px;
+                padding: 15px;
+            }
+
+            .version-panel {
+                width: 350px;
+                font-size: 12px;
+                padding: 10px 15px;
+            }
+
+            .status-log {
+                width: 350px;
+                font-size: 11px;
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .mode-selector {
+                top: 5px;
+                left: 5px;
+                padding: 6px;
+                gap: 6px;
+            }
+
+            #sim-info {
+                top: 5px;
+                right: 5px;
+                padding: 12px;
+                min-width: 150px;
+                font-size: 12px;
+            }
+
+            .sim-controls {
+                top: 60px;
+                right: 5px;
+                gap: 8px;
+            }
+
+            .sim-controls button {
+                padding: 8px 15px;
+                font-size: 12px;
+                min-width: 100px;
+            }
+
+            .wind-controls {
+                top: 60px;
+                left: 5px;
+                width: 180px;
+                padding: 12px;
+            }
+
+            .wind-controls h4 {
+                font-size: 14px;
+            }
+
+            .version-panel {
+                width: 300px;
+                height: 80px;
+                font-size: 11px;
+                padding: 8px 12px;
+                bottom: 150px;
+            }
+
+            .status-log {
+                width: 300px;
+                height: 130px;
+                font-size: 11px;
+                padding: 12px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .mode-selector {
+                flex-direction: column;
+                gap: 4px;
+                padding: 5px;
+            }
+
+            .mode-selector label {
+                font-size: 10px;
+            }
+
+            .mode-btn {
+                padding: 4px 8px;
+                font-size: 10px;
+                min-width: 50px;
+            }
+
+            #sim-info {
+                padding: 8px;
+                min-width: 120px;
+                font-size: 11px;
+            }
+
+            #sim-info h3 {
+                font-size: 14px;
+            }
+
+            .sim-controls button {
+                padding: 6px 10px;
+                font-size: 11px;
+                min-width: 80px;
+            }
+
+            .wind-controls {
+                width: 150px;
+                padding: 8px;
+            }
+
+            .wind-controls h4 {
+                font-size: 12px;
+            }
+
+            .wind-control label {
+                font-size: 11px;
+            }
+
+            .version-panel {
+                width: 250px;
+                height: 70px;
+                font-size: 10px;
+                padding: 6px 10px;
+                bottom: 120px;
+                left: 5px;
+            }
+
+            .status-log {
+                width: 250px;
+                height: 100px;
+                font-size: 10px;
+                padding: 8px;
+            }
+
+            .physics-debug {
+                font-size: 11px;
+                padding: 8px 15px;
+            }
+        }
+
+        /* Adaptation pour les très petites fenêtres */
+        @media (max-width: 400px) {
+
+            .wind-controls,
+            .version-panel,
+            .status-log {
+                display: none;
+                /* Masquer sur très petits écrans */
+            }
+
+            #sim-info {
+                padding: 6px;
+                min-width: 100px;
+                font-size: 10px;
+            }
+
+            .sim-controls {
+                right: 2px;
+                top: 45px;
+            }
+
+            .sim-controls button {
+                padding: 4px 8px;
+                font-size: 10px;
+                min-width: 60px;
+            }
+
+            .mode-selector {
+                top: 2px;
+                left: 2px;
+                padding: 3px;
+            }
+        }
+
+        /* Adaptation pour les écrans en mode paysage étroits */
+        @media (max-height: 500px) {
+            .version-panel {
+                bottom: 80px;
+                height: 60px;
+                font-size: 10px;
+            }
+
+            .status-log {
+                height: 60px;
+                font-size: 10px;
+            }
+
+            .wind-controls {
+                top: 50px;
+                padding: 8px;
+            }
         }
     </style>
 </head>
@@ -339,109 +568,41 @@
 <body>
     <div id="app"></div>
 
-    <!-- Sélecteur de mode -->
-    <div class="mode-selector">
-        <label>MODE:</label>
-        <button id="mode-cao" class="mode-btn">CAO</button>
-        <button id="mode-simulation" class="mode-btn active">Simulation</button>
-    </div>
-
-    <!-- Contrôles de simulation -->
-    <div class="sim-controls" style="top: 250px;">
-        <button id="reset-sim">🔄 Reset</button>
-        <button id="play-pause">▶️ Lancer</button>
-        <button id="debug-physics">🔍 Debug</button>
-    </div>
-
-    <!-- Contrôles du vent -->
-    <div class="wind-controls">
-        <h4>🌬️ Paramètres du vent</h4>
-        <div class="wind-control">
-            <label>Vitesse du vent</label>
-            <input type="range" id="wind-speed" min="0" max="50" value="12" step="1">
-            <span id="wind-speed-value">-- km/h</span>
-        </div>
-        <div class="wind-control">
-            <label>Direction</label>
-            <input type="range" id="wind-direction" min="0" max="360" value="0">
-            <span id="wind-direction-value">--°</span>
-        </div>
-        <div class="wind-control">
-            <label>Turbulence</label>
-            <input type="range" id="wind-turbulence" min="0" max="100" value="5">
-            <span id="wind-turbulence-value">--%</span>
-        </div>
-        <div class="wind-control">
-            <label>Longueur lignes</label>
-            <input type="range" id="line-length" min="10" max="50" value="15" step="1">
-            <span id="line-length-value">--m</span>
-        </div>
-        <div class="wind-control">
-            <label>Longueur brides</label>
-            <input type="range" id="bridle-length" min="50" max="150" value="100" step="5">
-            <span id="bridle-length-value">--%</span>
-        </div>
-    </div>
-
-    <!-- Debug physique amélioré -->
-    <div class="physics-debug">
-        <div class="debug-main">
-            <span>Forces: <span id="force-display">0</span>N</span> |
-            <span>Tension: <span id="tension-display">0</span>N</span> |
-            <span>Altitude: <span id="altitude-display">0</span>m</span>
-        </div>
-        <div class="debug-legend">
-            <span style="color: #00ff00;">● Vitesse</span> |
-            <span style="color: #0088ff;">● Portance</span> |
-            <span style="color: #ff0000;">● Traînée</span>
-        </div>
-    </div>
-    
-    <!-- Panneau de version -->
-    <div class="version-panel">
-        <div class="log-header">🏷️ Version du simulateur</div>
-        <div class="version-content">
-            <div>SimulationV9 - Physique réaliste avec traînée par surface</div>
-            <div>Build: 2025.09.02 | Moteur: Three.js r160 + Vite 5.4.19</div>
-            <div>✅ Forces normales + traînée individuelle par face</div>
-            <div>🎯 Amélioration: Interface optimisée et panneaux repositionnés</div>
-        </div>
-    </div>
-    
-    <!-- Log périodique -->
-    <div class="status-log">
-        <div class="log-header">📊 État du système</div>
-        <div id="periodic-log" class="log-content">En attente...</div>
-    </div>
-
-    <!-- Informations -->
-    <div id="sim-info">
-        <h3>🎮 Mode Simulation</h3>
-        <div>Cerf-volant: <span id="kite-model">Delta</span></div>
-        <div>Vent: <span id="wind-speed-display">18</span> km/h</div>
-        <div>FPS: <span id="fps">60</span></div>
-        <div>Physique: <span id="physics-status">Prête</span></div>
-    </div>
-
     <script type="module" src="/src/simulation/simulationLoader.ts"></script>
     <script type="module">
-        // Import du nouveau système d'interface
-        import { SimulationUI } from '/src/ui/SimulationUI.js';
-        
-        // Configuration de l'interface moderne
-        document.addEventListener('DOMContentLoaded', () => {
+        // Chargement dynamique de l'UI en fonction de la simulation active
+        const initUI = async () => {
             const appContainer = document.getElementById('app');
-            
-            // Initialiser le nouveau système d'interface
+            if (!appContainer) return;
+
+            // Déterminer le chemin UI à partir du module de simulation courant
+            const loader = window.simulationLoader;
+            let uiPath = '/src/ui/SimulationUI.ts'; // fallback global
+            try {
+                const current = loader?.getCurrentSimulation?.();
+                const mod = current?.module;
+                if (mod && mod.UI_MODULE_PATH) {
+                    uiPath = mod.UI_MODULE_PATH;
+                }
+            } catch {}
+
+            const { SimulationUI } = await import(uiPath);
             const simulationUI = new SimulationUI(appContainer);
-            
-            // Fade in au chargement
-            setTimeout(() => {
-                document.body.style.opacity = '1';
-            }, 100);
-            
-            // Exposer l'interface globalement pour la simulation
             window.simulationUI = simulationUI;
+
+            // Fade in
+            setTimeout(() => { document.body.style.opacity = '1'; }, 100);
+            // Informer la simulation que l'UI est prête
+            window.dispatchEvent(new CustomEvent('simulation-ui-ready'));
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Si le loader n'a pas encore chargé, écouter l'événement
+            window.addEventListener('simulation-loaded', () => initUI(), { once: true });
+            // Si déjà chargé (rechargement rapide), tenter immédiatement
+            if (window.simulationLoader?.getCurrentSimulation?.()) {
+                initUI();
+            }
         });
     </script>
 </body>

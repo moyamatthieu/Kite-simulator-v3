@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
+import { fileURLToPath, URL } from 'node:url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
   resolve: {
@@ -15,13 +18,15 @@ export default defineConfig({
       '@types': resolve(__dirname, 'src/types'),
       '@export': resolve(__dirname, 'src/export/index'),
       '@ui': resolve(__dirname, 'src/ui'),
-      
-      // 🏭 Factories par métier  
+      '@simulation': resolve(__dirname, 'src/simulation'),
+      '@simulation/simu_V10': resolve(__dirname, 'src/simulation/simu_V10'),
+
+      // 🏭 Factories par métier
       '@factories/furniture': resolve(__dirname, 'src/factories/FurnitureFactory'),
       '@factories/shapes': resolve(__dirname, 'src/factories/ShapesFactory'),
       '@factories/mechanical': resolve(__dirname, 'src/factories/MechanicalFactory'),
       '@factories/organic': resolve(__dirname, 'src/factories/OrganicFactory'),
-      
+
       // 📦 Objets par catégorie
       '@objects/furniture': resolve(__dirname, 'src/objects/furniture'),
       '@objects/shapes': resolve(__dirname, 'src/objects/shapes'),
@@ -39,8 +44,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        simulation: resolve(__dirname, 'simulation.html'),
-        simulationV9: resolve(__dirname, 'simulation-v9.html')
+        simulation: resolve(__dirname, 'simulation.html')
       }
     }
   }

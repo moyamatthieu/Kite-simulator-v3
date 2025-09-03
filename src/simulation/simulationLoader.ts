@@ -71,7 +71,9 @@ export class SimulationLoader {
                     'V5': 'Version expérimentale',
                     'V6': 'Version avec améliorations futures',
                     'V7': 'Version refactorisée - Code propre et maintenable',
-                    'V7_1': 'Version optimisée - Corrections critiques'
+                    'V7_1': 'Version optimisée - Corrections critiques',
+                    'V8': 'Physique émergente pure - Architecture modulaire',
+                    'V9': 'Forces de traînée individuelles + Interface OOP moderne'
                 };
 
                 if (descriptions[version]) {
@@ -114,9 +116,24 @@ export class SimulationLoader {
             return versionParam;
         }
 
-        // Sinon prendre la dernière version disponible
-        const versions = Array.from(this.simulations.keys()).sort();
-        return versions[versions.length - 1] || null;
+        // Choisir la plus grande version numériquement (V10 > V9 > V8 ...)
+        const toNumeric = (v: string) => {
+            // Ex: V7_2 -> 7.2, V10 -> 10
+            const m = v.match(/^V(\d+)(?:_(\d+))?$/);
+            if (!m) return 0;
+            const major = parseInt(m[1], 10) || 0;
+            const minor = m[2] ? parseInt(m[2], 10) : 0;
+            return major + minor / 10;
+        };
+
+        let best: string | null = null;
+        let bestScore = -Infinity;
+        for (const v of this.simulations.keys()) {
+            const score = toNumeric(v);
+            if (score > bestScore) { bestScore = score; best = v; }
+        }
+
+        return best;
     }
 
     /**
@@ -167,6 +184,13 @@ export class SimulationLoader {
             // Notifier le changement
             if (this.onSimulationChange) {
                 this.onSimulationChange(info);
+            }
+
+            // Émettre un événement global pour permettre le chargement dynamique de l'UI
+            try {
+                window.dispatchEvent(new CustomEvent('simulation-loaded', { detail: { info } }));
+            } catch (e) {
+                // ignore si non-disponible (SSR inexistant ici)
             }
 
             // Mettre à jour l'interface
@@ -293,7 +317,7 @@ export class SimulationLoader {
                 .simulation-selector {
                     position: absolute;
                     top: 10px;
-                    left: 220px;
+                    left: 330px;
                     background: rgba(0, 0, 0, 0.8);
                     padding: 10px;
                     border-radius: 8px;

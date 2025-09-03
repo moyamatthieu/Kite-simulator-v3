@@ -1,4 +1,4 @@
-# CLAUDE.md
+ug# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -289,7 +289,12 @@ const categories = await autoLoader.getCategories();
 - **`/src/simulationV2.ts`** : Version de développement pour nouvelles fonctionnalités
 - **`/src/simulationV3.ts`** : Version modulaire refactorisée avec architecture propre
 - **`/src/simulationV4.ts`** : Version avec améliorations de performance
-- **`/src/simulationV5.ts`** : Version avec physique émergente pure (ACTUELLEMENT UTILISÉE)
+- **`/src/simulationV5.ts`** : Version avec physique émergente pure
+- **`/src/simulationV6.ts`** : Version avec améliorations de stabilité
+- **`/src/simulationV7.ts`** : Version avec système de brides physiques
+- **`/src/simulationV8.ts`** : Version avec physique naturelle simplifiée
+- **`/src/simulationV9.ts`** : Version avec analyse de vol et historique
+- **`/src/simulationV10.ts`** : Version modulaire avancée avec architecture KISS (ACTUELLEMENT UTILISÉE)
 - **`/simulation.html`** : Interface HTML de la simulation
 
 ### 🎯 Physique Émergente Pure (SimulationV5)
@@ -370,6 +375,144 @@ La simulation implémente une **physique 100% émergente** sans coefficients art
 
 ### Points d'Ancrage du Kite
 Les points `CTRL_GAUCHE` et `CTRL_DROIT` dans Kite2.ts (Z=0.4) définissent où les lignes se connectent et créent le moment de redressement naturel.
+
+### 🎯 SimulationV10 - Architecture Modulaire Avancée
+
+#### Vue d'Ensemble
+La SimulationV10 représente l'évolution ultime du simulateur de cerf-volant, combinant les meilleures pratiques de toutes les versions précédentes dans une architecture modulaire KISS (Keep It Simple, Stupid).
+
+#### Architecture Modulaire KISS
+
+```text
+/src/simulation/simu_V10/
+├── constants.ts          # Constantes physiques et paramètres
+├── control.ts           # Gestion simple de la barre
+├── control_bar.ts       # Barre de contrôle 3D
+├── debug.ts            # Vecteurs de debug colorés
+├── engine.ts           # Moteur physique principal
+├── environment.ts      # Sol, ciel et ambiance
+├── history.ts          # Historique de vol léger
+├── input.ts            # Gestion des entrées utilisateur
+├── lines.ts            # Système de lignes simple
+├── pilot.ts            # Représentation 3D du pilote
+├── render.ts           # Gestion du rendu Three.js
+├── wind.ts             # Génération du vent réaliste
+├── analysis/           # Analyse de vol avancée
+├── cache/              # Cache de calculs aérodynamiques
+├── config/             # Configuration centralisée
+├── interfaces/         # Types TypeScript
+├── memory/             # Gestion mémoire optimisée
+└── utils/              # Utilitaires partagés
+```
+
+#### Principes Fondamentaux V10
+
+1. **KISS First** : Architecture simple mais extensible
+2. **Modularité Pure** : Chaque classe dans son fichier
+3. **Performance Optimisée** : Cache intelligent et gestion mémoire
+4. **Debug Complet** : Visualisation avancée des forces
+5. **Physique Naturelle** : Calculs émergents sans artifices
+
+#### Modules Clés
+
+##### PhysicsEngine (`engine.ts`)
+- **Moteur physique principal** orchestrant la simulation
+- **Calculs émergents** : Forces naturelles sans coefficients artificiels
+- **Intégration optimisée** : Méthode d'Euler avec amortissement adaptatif
+- **Cache intelligent** : Réduction des recalculs répétitifs
+
+##### AerodynamicsCalculator (`aerodynamics.ts`)
+- **Calcul par face** : Forces sur chaque triangle du kite
+- **Physique émergente** : Portance et traînée naturelles
+- **Stall factor** : Décrochage réaliste
+- **Cache avancé** : Optimisation des calculs répétitifs
+
+##### WindSimulator (`wind.ts`)
+- **Vent réaliste** : Turbulences cohérentes
+- **Performance** : Calcul optimisé avec cache
+- **Paramètres ajustables** : Vitesse, direction, turbulence
+
+##### DebugVectors (`debug.ts`)
+- **Visualisation complète** : Forces, vitesses, vent apparent
+- **Légende interactive** : Explication des couleurs
+- **Performance** : Mise à jour optimisée
+
+#### Configuration Centralisée
+
+```typescript
+// Paramètres physiques équilibrés
+export const defaultParams: SimParams = {
+  windSpeed: 12,        // Vent plus fort pour vol naturel
+  windDirectionDeg: 0,
+  paused: false,
+};
+
+// Amortissement naturel (comme V8)
+linearDamping: 0.92,    // Résistance air réaliste
+angularDamping: 0.85,   // Rotation naturelle
+```
+
+#### Améliorations par Rapport aux Versions Précédentes
+
+##### Par Rapport à V8
+- ✅ **Architecture modulaire** : Code organisé et maintenable
+- ✅ **Cache intelligent** : Performance améliorée
+- ✅ **Debug avancé** : Visualisation complète des forces
+- ✅ **Gestion mémoire** : Object pools et optimisation
+- ✅ **Configuration centralisée** : Paramètres faciles à ajuster
+
+##### Par Rapport à V9
+- ✅ **Simplification** : Suppression des contraintes PBD complexes
+- ✅ **Performance** : Cache et optimisation mémoire
+- ✅ **Stabilité** : Amortissement naturel comme V8
+- ✅ **Maintenabilité** : Architecture KISS claire
+
+#### Points Forts de V10
+
+1. **Performance Exceptionnelle**
+   - Cache multi-niveaux pour les calculs aérodynamiques
+   - Object pools pour la gestion mémoire
+   - Mise à jour optimisée des vecteurs de debug
+
+2. **Architecture KISS**
+   - Un fichier par classe pour une séparation claire
+   - Interfaces TypeScript pour la communication
+   - Configuration centralisée et modifiable
+
+3. **Debug et Analyse**
+   - Vecteurs colorés pour toutes les forces
+   - Métriques temps réel complètes
+   - Historique de vol avec analyse
+
+4. **Physique Naturelle**
+   - Calculs émergents sans coefficients artificiels
+   - Amortissement réaliste comme V8
+   - Réponse naturelle aux commandes
+
+#### Utilisation Recommandée
+
+```typescript
+// Lancement simple
+import { SimulationAppV10 } from '@simulation/simulationV10';
+const sim = new SimulationAppV10();
+
+// Configuration personnalisée
+const customParams = {
+  windSpeed: 15,        // km/h
+  windDirectionDeg: 45, // degrés
+  debugMode: true
+};
+```
+
+#### Perspectives d'Évolution
+
+- **IA de pilotage** : Contrôle automatique du kite
+- **Multi-kite** : Simulation de plusieurs cerfs-volants
+- **Export données** : Analyse détaillée des vols
+- **Réalité virtuelle** : Support WebXR
+- **Performance** : Optimisation pour mobile
+
+**🎯 V10 représente l'aboutissement de l'évolution du simulateur : simplicité, performance et physique naturelle dans une architecture modulaire maintenable.**
 
 ### Architecture SimulationV3
 La version V3 introduit une architecture modulaire avec séparation des responsabilités :

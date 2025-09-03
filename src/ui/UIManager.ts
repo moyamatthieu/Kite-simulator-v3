@@ -21,6 +21,7 @@ export interface PanelInstance {
     element: HTMLElement;
     isCollapsed: boolean;
     actualPosition: { x: number; y: number };
+    userPositioned?: boolean;
 }
 
 /**
@@ -32,6 +33,7 @@ export class UIManager {
     private container: HTMLElement;
     private readonly PANEL_MARGIN = 15;
     private readonly HEADER_HEIGHT = 30;
+    private readonly STORAGE_KEY = 'ui_layout_global';
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -171,6 +173,24 @@ export class UIManager {
         this.container.appendChild(panel);
         
         // Calculer et appliquer la position
+        this.repositionAllPanels();
+
+        // Restaurer un layout sauvegardé
+        try {
+            const raw = localStorage.getItem(this.STORAGE_KEY);
+            const layout = raw ? JSON.parse(raw) : {};
+            const saved = layout[config.id as string];
+            if (saved) {
+                instance.userPositioned = true;
+                instance.actualPosition = { x: saved.x, y: saved.y };
+                panel.style.left = `${saved.x}px`;
+                panel.style.top = `${saved.y}px`;
+                if (saved.collapsed !== undefined) {
+                    instance.isCollapsed = !!saved.collapsed;
+                    panel.classList.toggle('collapsed', instance.isCollapsed);
+                }
+            }
+        } catch {}
         this.repositionAllPanels();
         
         return instance;
@@ -351,6 +371,17 @@ export class UIManager {
                 isDragging = false;
                 panel.style.zIndex = '1000';
                 document.body.style.cursor = '';
+                const inst = this.panels.get(panel.id);
+                if (inst) {
+                    inst.userPositioned = true;
+                    inst.actualPosition = { x: parseInt(panel.style.left) || 0, y: parseInt(panel.style.top) || 0 };
+                    try {
+                        const raw = localStorage.getItem(this.STORAGE_KEY);
+                        const layout = raw ? JSON.parse(raw) : {};
+                        layout[panel.id] = { x: inst.actualPosition.x, y: inst.actualPosition.y, collapsed: inst.isCollapsed };
+                        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(layout));
+                    } catch {}
+                }
             }
         });
     }

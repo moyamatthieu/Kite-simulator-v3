@@ -39,6 +39,9 @@
       "@types": ["src/types/index"],
       "@export": ["src/export/index"],
       "@export/*": ["src/export/*"]
+      ,
+      "@simulation/*": ["src/simulation/*"],
+      "@simulation/simu_V10/*": ["src/simulation/simu_V10/*"]
     }
   },
   "include": ["src"],
