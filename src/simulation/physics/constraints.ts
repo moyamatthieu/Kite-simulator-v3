@@ -3,31 +3,19 @@
  */
 
 import * as THREE from 'three';
-import { CONFIG } from '@/simulation/config/SimulationConfig';
-import { PhysicsConstants } from '@/simulation/physics/PhysicsConstants';
-import { KiteGeometry } from '@/simulation/data/KiteGeometry';
-import {
-    IGroundCollisionSystem,
-    IBoundaryConstraints,
-    ILineConstraints,
-    IPhysicsConstraints
-} from '@/simulation/interfaces/physics';
+import { CONFIG, PhysicsConstants, KiteGeometry } from '../core/constants';
 
-export class GroundCollisionSystem implements IGroundCollisionSystem {
+export class GroundCollisionSystem {
     private groundLevel: number;
     private friction: number;
     private restitution: number;
     private penetrationThreshold: number;
-    private kiteGeometry: typeof KiteGeometry; // Devient une référence à la classe statique
 
     constructor() {
-        const physicsConfig = CONFIG.get('physics');
-        const kiteConfig = CONFIG.get('kite');
-        this.groundLevel = kiteConfig.minHeight; // Initialiser avec la hauteur minimale du kite
-        this.friction = PhysicsConstants.GROUND_FRICTION; // Utilise la friction des constantes physiques
-        this.restitution = 0.05; // Valeur fixe, un petit rebond
-        this.penetrationThreshold = 0.05; // Marge de pénétration avant correction
-        this.kiteGeometry = KiteGeometry; // Utilise la classe statique KiteGeometry
+        this.groundLevel = CONFIG.kite.minHeight;
+        this.friction = PhysicsConstants.GROUND_FRICTION;
+        this.restitution = 0.05;
+        this.penetrationThreshold = 0.05;
     }
 
     /**
@@ -60,12 +48,12 @@ export class GroundCollisionSystem implements IGroundCollisionSystem {
      * Calcule le point le plus bas du cerf-volant en tenant compte de sa rotation
      */
     private getLowestPoint(kite: THREE.Object3D): number {
-        const localPoints = Object.values(this.kiteGeometry.POINTS); // Accès aux points via .POINTS
+        const localPoints = Object.values(KiteGeometry.POINTS); // Accès direct aux points
 
         let lowestY = Infinity;
 
         // Transformer chaque point local en coordonnées mondiales et trouver le plus bas
-        localPoints.forEach(localPoint => {
+        localPoints.forEach((localPoint: THREE.Vector3) => {
             const worldPoint = localPoint.clone()
                 .applyQuaternion(kite.quaternion)  // Appliquer la rotation
                 .add(kite.position);               // Appliquer la position
@@ -96,7 +84,7 @@ export class GroundCollisionSystem implements IGroundCollisionSystem {
     }
 }
 
-export class BoundaryConstraints implements IBoundaryConstraints {
+export class BoundaryConstraints {
     private bounds: {
         minX: number; maxX: number;
         minY: number; maxY:
@@ -178,7 +166,7 @@ export class BoundaryConstraints implements IBoundaryConstraints {
     }
 }
 
-export class LineConstraints implements ILineConstraints {
+export class LineConstraints {
     private baseMaxLength: number;
     private leftMaxLength: number;
     private rightMaxLength: number;
@@ -186,12 +174,11 @@ export class LineConstraints implements ILineConstraints {
     private steerShortenFactor: number;
 
     constructor() {
-        const linesConfig = CONFIG.get('lines');
-        this.baseMaxLength = linesConfig.defaultLength;
-        this.leftMaxLength = linesConfig.defaultLength;
-        this.rightMaxLength = linesConfig.defaultLength;
-        this.tolerance = PhysicsConstants.LINE_CONSTRAINT_TOLERANCE; // Utilise la tolérance des constantes physiques
-        this.steerShortenFactor = 0.1; // Valeur fixe pour l'instant, à exposer si nécessaire
+        this.baseMaxLength = CONFIG.lines.defaultLength;
+        this.leftMaxLength = CONFIG.lines.defaultLength;
+        this.rightMaxLength = CONFIG.lines.defaultLength;
+        this.tolerance = PhysicsConstants.LINE_CONSTRAINT_TOLERANCE;
+        this.steerShortenFactor = 0.1;
     }
 
     /**
@@ -264,11 +251,11 @@ export class LineConstraints implements ILineConstraints {
     getMaxLengths(): { left: number; right: number } { return { left: this.leftMaxLength, right: this.rightMaxLength }; }
 }
 
-export class PhysicsConstraints implements IPhysicsConstraints {
-    private groundCollision: IGroundCollisionSystem;
-    private boundaryConstraints: IBoundaryConstraints;
+export class PhysicsConstraints {
+    private groundCollision: GroundCollisionSystem;
+    private boundaryConstraints: BoundaryConstraints;
 
-    constructor(groundCollision: IGroundCollisionSystem, boundaryConstraints: IBoundaryConstraints) {
+    constructor(groundCollision: GroundCollisionSystem, boundaryConstraints: BoundaryConstraints) {
         this.groundCollision = groundCollision;
         this.boundaryConstraints = boundaryConstraints;
     }
@@ -304,11 +291,11 @@ export class PhysicsConstraints implements IPhysicsConstraints {
     /**
      * Accès aux sous-systèmes pour configuration
      */
-    get groundSystem(): IGroundCollisionSystem {
+    get groundSystem(): GroundCollisionSystem {
         return this.groundCollision;
     }
 
-    get boundarySystem(): IBoundaryConstraints {
+    get boundarySystem(): BoundaryConstraints {
         return this.boundaryConstraints;
     }
 }

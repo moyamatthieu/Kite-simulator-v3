@@ -8,7 +8,7 @@
  */
 
 import * as THREE from 'three';
-import { CONFIG } from '@/simulation/config/SimulationConfig';
+import { CONFIG } from '../core/constants';
 
 export class WindSimulator {
   private speed: number; // m/s
@@ -26,13 +26,12 @@ export class WindSimulator {
   private readonly maxApparentSpeed: number;
 
   constructor(initialSpeedMs?: number, initialDirectionDeg?: number) {
-    const windConfig = CONFIG.get('wind');
-    this.speed = initialSpeedMs !== undefined ? initialSpeedMs : (windConfig.defaultSpeed * 1000) / 3600; // Convert km/h to m/s
-    this.direction = initialDirectionDeg !== undefined ? initialDirectionDeg : windConfig.defaultDirection;
-    this.turbulence = windConfig.defaultTurbulence; // Utilise la turbulence de la config
-    this.turbulenceScale = windConfig.turbulenceScale;
-    this.turbulenceFreqBase = windConfig.turbulenceFreqBase;
-    this.maxApparentSpeed = windConfig.maxApparentSpeed;
+    this.speed = initialSpeedMs !== undefined ? initialSpeedMs : (CONFIG.wind.defaultSpeed * 1000) / 3600; // Convert km/h to m/s
+    this.direction = initialDirectionDeg !== undefined ? initialDirectionDeg : CONFIG.wind.defaultDirection;
+    this.turbulence = CONFIG.wind.defaultTurbulence; // Utilise la turbulence de la config
+    this.turbulenceScale = CONFIG.wind.turbulenceScale;
+    this.turbulenceFreqBase = CONFIG.wind.turbulenceFreqBase;
+    this.maxApparentSpeed = CONFIG.wind.maxApparentSpeed;
   }
 
 

@@ -22,10 +22,10 @@ export class PhysicsConstants {
     static readonly CATENARY_SEGMENTS = 5;             // Nombre de points pour dessiner la courbe des lignes
 
     // Limites de sécurité - pour que la simulation ne devienne pas folle
-    static readonly MAX_FORCE = 1000;                  // Force max en Newtons (comme soulever 100kg)
-    static readonly MAX_VELOCITY = 30;                 // Vitesse max : 30 m/s = 108 km/h
+    static readonly MAX_FORCE = 2500;                  // Force max augmentée pour montée au zénith
+    static readonly MAX_VELOCITY = 40;                 // Vitesse max augmentée : 40 m/s = 144 km/h
     static readonly MAX_ANGULAR_VELOCITY = 25;          // Rotation max : presque 1 tour par seconde
-    static readonly MAX_ACCELERATION = 100;             // Le kite ne peut pas accélérer plus vite qu'une voiture de sport
+    static readonly MAX_ACCELERATION = 150;             // Accélération max augmentée pour montée verticale
     static readonly MAX_ANGULAR_ACCELERATION = 20;     // La rotation ne peut pas s'emballer
 }
 
@@ -105,12 +105,13 @@ export const CONFIG = {
         airDensity: 1.225,          // Densité de l'air (l'air épais pousse plus fort)
         deltaTimeMax: 0.016,        // Mise à jour max 60 fois par seconde (pour rester fluide)
         angularDamping: 0.85,       // Amortissement angulaire équilibré
-        linearDamping: 0.92,        // Friction air réaliste (8% de perte par frame)
+        linearDamping: 0.96,        // Amortissement réduit pour permettre montée au zénith (4% de perte)
         angularDragCoeff: 0.10      // Résistance rotation augmentée pour moins d'oscillations
     },
     aero: {
         liftScale: 1.5,             // Portance augmentée pour meilleur vol
-        dragScale: 1.0              // Traînée naturelle
+        dragScale: 1.0,             // Traînée naturelle
+        liftCoefficient: 1.0        // Coefficient d'amélioration de la portance (0.0-2.0)
     },
     kite: {
         mass: 0.28,                 // kg - Masse du cerf-volant
@@ -119,7 +120,7 @@ export const CONFIG = {
         minHeight: 0.5              // m - Altitude minimale (plus haut pour éviter le sol)
     },
     lines: {
-        defaultLength: 15,          // m - Longueur par défaut
+        defaultLength: 25,          // m - Longueur augmentée pour permettre montée au zénith
         stiffness: 25000,           // N/m - Rigidité renforcée pour mieux maintenir le kite
         maxTension: 1000,           // N - Tension max augmentée pour éviter rupture
         maxSag: 0.008,              // Affaissement réduit pour lignes plus tendues
@@ -147,6 +148,11 @@ export const CONFIG = {
     controlBar: {
         width: 0.6,                 // m - Largeur de la barre
         position: new THREE.Vector3(0, 1.2, 8) // Position initiale
+    },
+    control: {
+        inputSmoothing: 0.8,        // Lissage des entrées utilisateur
+        returnSpeed: 2.0,           // Vitesse de retour au centre
+        maxTilt: 1.0                // Inclinaison maximale de la barre
     }
 };
 

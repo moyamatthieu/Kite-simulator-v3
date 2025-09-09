@@ -2,7 +2,7 @@
  * control.ts — Gestion smooth de la barre/contrôle (inspiré de V9)
  */
 
-import { CONFIG } from '@/simulation/config/SimulationConfig';
+import { CONFIG } from '../core/constants';
 
 export class ControlBarManager {
   private _tilt: number = 0; // -1..1
@@ -14,10 +14,9 @@ export class ControlBarManager {
   private readonly MAX_TILT: number;
 
   constructor() {
-    const controlConfig = CONFIG.get('control');
-    this.INPUT_SMOOTHING = controlConfig.inputSmoothing;
-    this.RETURN_SPEED = controlConfig.returnSpeed;
-    this.MAX_TILT = controlConfig.maxTilt;
+    this.INPUT_SMOOTHING = CONFIG.control.inputSmoothing;
+    this.RETURN_SPEED = CONFIG.control.returnSpeed;
+    this.MAX_TILT = CONFIG.control.maxTilt;
   }
 
   /**
@@ -55,4 +54,3 @@ export class ControlBarManager {
     return this.targetTilt;
   }
 }
-

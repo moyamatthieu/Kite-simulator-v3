@@ -9,7 +9,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Kite } from '@objects/Kite';
 import { PhysicsEngine } from './physics/PhysicsEngine';
 import { DebugVisualizer } from './physics/DebugVisualizer';
-import { CONFIG, PhysicsConstants, WindParams, KiteState, HandlePositions } from './core/constants';
+import { CONFIG, PhysicsConstants, WindParams, KiteState, HandlePositions, KiteGeometry } from './core/constants';
 import { CompactUI } from './ui/CompactUI';
 import { WindSimulator } from './physics/WindSimulator';
 import { AerodynamicsCalculator } from './physics/AerodynamicsCalculator';
@@ -212,6 +212,12 @@ export class SimulationApp {
     private targetBarRotation = 0;
     private currentBarRotation = 0;
 
+    // Stockage des détails des surfaces pour le debug
+    private surfaceDetails: any[] = [];
+
+    // Coefficient d'amélioration de la portance
+    private liftCoefficient: number = CONFIG.aero.liftCoefficient;
+
     constructor(container?: HTMLElement) {
         const targetContainer = container || document.getElementById('app');
         if (!targetContainer) {
@@ -295,6 +301,15 @@ export class SimulationApp {
 
         // Créer la légende de debug
         this.createDebugLegend();
+
+        // Configurer le vent à 300 km/h
+        this.setWindParams({
+            speed: 300, // 300 km/h
+            direction: 0, // Direction par défaut
+            turbulence: 0.1 // Légère turbulence
+        });
+
+        console.log('🌪️ Vent configuré à 300 km/h');
 
         // Redimensionnement
         window.addEventListener('resize', () => this.onResize(container));
@@ -405,25 +420,14 @@ export class SimulationApp {
         this.kite.localToWorld(kiteLeftWorld);
         this.kite.localToWorld(kiteRightWorld);
 
-        const handles = this.getHandlePositions();
+        // Utiliser le ControlBarManager pour obtenir les positions des poignées
+        const handles = this.controlBarManager.getHandlePositions(this.kite.position);
 
         this.leftLine.geometry.setFromPoints([handles.left, kiteLeftWorld]);
         this.rightLine.geometry.setFromPoints([handles.right, kiteRightWorld]);
-    }
 
-    private getHandlePositions(): HandlePositions {
-        const barHalfWidth = CONFIG.controlBar.width * 0.5;
-        const barRight = new THREE.Vector3(1, 0, 0);
-
-        const leftOffset = barRight.clone().multiplyScalar(-barHalfWidth)
-            .applyAxisAngle(new THREE.Vector3(0, 1, 0), this.currentBarRotation);
-        const rightOffset = barRight.clone().multiplyScalar(barHalfWidth)
-            .applyAxisAngle(new THREE.Vector3(0, 1, 0), this.currentBarRotation);
-
-        return {
-            left: this.controlBar.position.clone().add(leftOffset),
-            right: this.controlBar.position.clone().add(rightOffset)
-        };
+        // Mettre à jour la barre visuelle
+        this.controlBarManager.updateVisual(this.controlBar, this.kite);
     }
 
     private setupControls(): void {
@@ -481,17 +485,24 @@ export class SimulationApp {
         const apparentWind = this.windSimulator.getApparentWind(this.kiteState.velocity, deltaTime);
 
         // Forces aérodynamiques (V8 style - physique émergente)
-        const { lift, drag, torque } = AerodynamicsCalculator.calculateForces(
+        const aeroResult = AerodynamicsCalculator.calculateForcesWithNormals(
             apparentWind,
             this.kite.quaternion,
             this.kite
         );
+        let { lift, drag, torque } = aeroResult.forces;
+        this.surfaceDetails = aeroResult.surfaceDetails;
+
+        // Appliquer le coefficient d'amélioration de la portance
+        lift.multiplyScalar(this.liftCoefficient);
 
         // Gravité
         const gravity = new THREE.Vector3(0, -CONFIG.kite.mass * CONFIG.physics.gravity, 0);
 
         // PHYSIQUE GÉOMÉTRIQUE : Tensions basées sur distances réelles (SimulationV8 style)
         // Rotation barre → nouvelles positions poignées → nouvelles distances → nouvelles forces
+        // Utiliser le ControlBarManager pour obtenir la rotation actuelle
+        this.controlBarManager.setRotation(this.currentBarRotation);
         const { leftForce, rightForce, torque: lineTorque } = this.lineSystem.calculateLineTensions(
             this.kite,
             this.currentBarRotation,
@@ -511,7 +522,6 @@ export class SimulationApp {
 
         // LISSAGE TEMPOREL DES FORCES (Style SimulationV8)
         // Appliquer le lissage temporel (filtre passe-bas)
-        // Cela simule l'inertie du tissu et la viscosité de l'air
         this.smoothedForce.lerp(totalForce, 1 - this.FORCE_SMOOTHING);
         this.smoothedTorque.lerp(totalTorque, 1 - this.FORCE_SMOOTHING);
 
@@ -757,6 +767,47 @@ export class SimulationApp {
             (tensionWarning ? ` ${tensionWarning}` : '');
 
         console.log(`📊 ${logMessage}`);
+
+        // Log détaillé de tous les vecteurs
+        this.logAllVectors();
+    }
+
+    /**
+     * Log condensé de tous les vecteurs de debug
+     */
+    private logAllVectors(): void {
+        // Calculs préliminaires
+        const realWind = this.windSimulator.getWindAt(this.kite.position);
+        const apparentWind = this.windSimulator.getApparentWind(this.kiteState.velocity, 0);
+        const lineTensions = this.lineSystem.getLineTensions();
+
+        const totalLift = this.surfaceDetails.reduce((sum, surface) => sum + surface.liftForce.length(), 0);
+        const totalDrag = this.surfaceDetails.reduce((sum, surface) => sum + surface.dragForce.length(), 0);
+        const totalTension = lineTensions.leftTension + lineTensions.rightTension;
+
+        // Log condensé en une seule ligne
+        const logLine =
+            `🔍 VECTEURS | ` +
+            `🟢 Vel:${this.kiteState.velocity.length().toFixed(1)}m/s | ` +
+            `🔵 Wind:${realWind.length().toFixed(1)}m/s | ` +
+            `🟢 App:${apparentWind.length().toFixed(1)}m/s | ` +
+            `📈 Lift:${totalLift.toFixed(1)}N | ` +
+            `📉 Drag:${totalDrag.toFixed(1)}N | ` +
+            `🩷 Lines:${totalTension.toFixed(1)}N | ` +
+            `🔄 Ang:${this.kiteState.angularVelocity.length().toFixed(2)}rad/s | ` +
+            `📊 L/D:${totalDrag > 0 ? (totalLift / totalDrag).toFixed(1) : '∞'}`;
+
+        console.log(logLine);
+
+        // Log détaillé des faces (une ligne par face)
+        if (this.surfaceDetails.length > 0) {
+            const faceLog = this.surfaceDetails.map((surface, index) =>
+                `  Face${index}: 📈${surface.liftForce.length().toFixed(1)}N 📉${surface.dragForce.length().toFixed(1)}N (${(surface.contribution * 100).toFixed(0)}%)`
+            ).join(' | ');
+            console.log(`🪁 FACES: ${faceLog}`);
+        }
+
+        console.log(''); // Ligne vide pour séparer les logs
     }
 
     /**
@@ -786,12 +837,39 @@ export class SimulationApp {
             this.debugArrows.push(velocityArrow);
         }
 
-        // 2. Flèche du vent apparent (VERT CLAIR)
+        // 2. Flèche du vent réel (BLEU) - PART DU NEZ DU KITE
+        const realWind = this.windSimulator.getWindAt(this.kite.position);
+        if (realWind.length() > 0.1) {
+            // Calculer la position du nez du kite en coordonnées mondiales
+            const nezLocal = KiteGeometry.POINTS.NEZ;
+            const nezWorld = nezLocal.clone()
+                .applyQuaternion(this.kite.quaternion)
+                .add(this.kite.position);
+
+            const realWindArrow = new THREE.ArrowHelper(
+                realWind.clone().normalize(),
+                nezWorld.clone().add(new THREE.Vector3(0, 0.5, 0)), // Légèrement au-dessus du nez
+                Math.min(realWind.length() * 0.2, 1.5),
+                0x0088ff, // Bleu
+                0.25,
+                0.2
+            );
+            this.scene.add(realWindArrow);
+            this.debugArrows.push(realWindArrow);
+        }
+
+        // 3. Flèche du vent apparent (VERT CLAIR) - PART DU NEZ DU KITE
         const apparentWind = this.windSimulator.getApparentWind(this.kiteState.velocity, 0);
         if (apparentWind.length() > 0.1) {
+            // Calculer la position du nez du kite en coordonnées mondiales
+            const nezLocal = KiteGeometry.POINTS.NEZ;
+            const nezWorld = nezLocal.clone()
+                .applyQuaternion(this.kite.quaternion)
+                .add(this.kite.position);
+
             const windArrow = new THREE.ArrowHelper(
                 apparentWind.clone().normalize(),
-                centerWorld.clone().add(new THREE.Vector3(0, 1.5, 0)), // Décalée vers le haut
+                nezWorld, // Origine au nez du kite
                 Math.min(apparentWind.length() * 0.3, 2),
                 0x88ff88, // Vert clair
                 0.3,
@@ -801,52 +879,10 @@ export class SimulationApp {
             this.debugArrows.push(windArrow);
         }
 
-        // 3. Forces aérodynamiques (BLEU pour portance, ROUGE pour traînée)
-        const { lift, drag } = AerodynamicsCalculator.calculateForces(
-            apparentWind,
-            this.kite.quaternion,
-            this.kite
-        );
+        // 3. Forces aérodynamiques par face (BLEU CYAN pour portance, ROUGE pour traînée)
+        this.addAerodynamicDebugArrows(this.surfaceDetails);
 
-        // Flèche de portance (BLEU)
-        if (lift.length() > 1) { // Seuil plus élevé pour éviter micro-flèches
-            const liftArrow = new THREE.ArrowHelper(
-                lift.clone().normalize(),
-                centerWorld.clone().add(new THREE.Vector3(-0.5, 0, 0)), // Décalée à gauche
-                Math.min(Math.sqrt(lift.length()) * 0.4, 2.5),
-                0x0088ff, // Bleu
-                0.3,
-                0.25
-            );
-            this.scene.add(liftArrow);
-            this.debugArrows.push(liftArrow);
-        }
 
-        // Flèche de traînée (ROUGE)
-        if (drag.length() > 0.1) {
-            const dragArrow = new THREE.ArrowHelper(
-                drag.clone().normalize(),
-                centerWorld.clone().add(new THREE.Vector3(0.5, 0, 0)), // Décalée à droite
-                Math.min(Math.sqrt(drag.length()) * 0.4, 2),
-                0xff4444, // Rouge
-                0.3,
-                0.25
-            );
-            this.scene.add(dragArrow);
-            this.debugArrows.push(dragArrow);
-        }
-
-        // 4. Flèche de gravité (ORANGE)
-        const gravityArrow = new THREE.ArrowHelper(
-            new THREE.Vector3(0, -1, 0),
-            centerWorld.clone().add(new THREE.Vector3(0, -0.5, 0)), // Décalée vers le bas
-            Math.min((CONFIG.kite.mass * CONFIG.physics.gravity) * 0.15, 1.5),
-            0xffaa00, // Orange
-            0.25,
-            0.2
-        );
-        this.scene.add(gravityArrow);
-        this.debugArrows.push(gravityArrow);
 
         // 5. Tensions des lignes (ROSE)
         this.addLineTensionDebugArrows(centerWorld);
@@ -867,6 +903,110 @@ export class SimulationApp {
     }
 
     /**
+     * Ajoute les flèches de debug pour les forces aérodynamiques par face
+     */
+    private addAerodynamicDebugArrows(surfaceDetails: any[]): void {
+        // Obtenir le vent apparent pour calculer la traînée
+        const apparentWind = this.windSimulator.getApparentWind(this.kiteState.velocity, 0);
+        const windSpeed = apparentWind.length();
+
+        // Couleurs pour chaque face (différentes pour les distinguer)
+        const faceColors = [
+            0x00ffff, // Cyan pour face 0
+            0xff00ff, // Magenta pour face 1
+            0xffff00, // Jaune pour face 2
+            0x00ff00  // Vert pour face 3
+        ];
+
+        surfaceDetails.forEach((surface, index) => {
+            const center = surface.center;
+            const liftForce = surface.liftForce;
+            const cosIncidence = surface.cosIncidence;
+            const surfaceArea = surface.area || 1.0; // Surface de la face
+
+            // Flèche de portance (BLEU CYAN) - direction de la force
+            if (liftForce.length() > 0.01) {
+                const liftArrow = new THREE.ArrowHelper(
+                    liftForce.clone().normalize(),
+                    center,
+                    Math.min(liftForce.length() * 0.5, 1.0),
+                    faceColors[index % faceColors.length], // Couleur différente par face
+                    0.15,
+                    0.1
+                );
+                this.scene.add(liftArrow);
+                this.debugArrows.push(liftArrow);
+            }
+
+            // Calculer la traînée pour cette face (opposée au vent apparent)
+            if (windSpeed > 0.1 && cosIncidence > 0.05) {
+                // Coefficient de traînée simplifié (environ 0.1 pour un cerf-volant)
+                const dragCoefficient = 0.1;
+                const dynamicPressure = 0.5 * CONFIG.physics.airDensity * windSpeed * windSpeed;
+                const dragMagnitude = dynamicPressure * surfaceArea * cosIncidence * dragCoefficient;
+
+                // Direction du vent apparent (traînée dans la direction du vent relatif)
+                const dragDirection = apparentWind.clone().normalize();
+                const dragForce = dragDirection.multiplyScalar(dragMagnitude);
+
+                const dragArrow = new THREE.ArrowHelper(
+                    dragDirection,
+                    center, // Centre de la face
+                    Math.min(dragMagnitude * 0.3, 0.8),
+                    0xff0000, // Rouge
+                    0.12,
+                    0.08
+                );
+                this.scene.add(dragArrow);
+                this.debugArrows.push(dragArrow);
+
+                // Gravité par face (distribuée proportionnellement à la surface)
+                const gravityPerFace = new THREE.Vector3(0, -CONFIG.kite.mass * CONFIG.physics.gravity * (surfaceArea / 4), 0);
+                const gravityArrow = new THREE.ArrowHelper(
+                    new THREE.Vector3(0, -1, 0),
+                    center, // Centre de la face
+                    Math.min(Math.abs(gravityPerFace.y) * 0.1, 0.6),
+                    0xffaa00, // Orange pour gravité par face
+                    0.1,
+                    0.08
+                );
+                this.scene.add(gravityArrow);
+                this.debugArrows.push(gravityArrow);
+
+                // Force aérodynamique totale par face (somme portance + traînée)
+                const totalAeroForce = liftForce.clone().add(dragForce);
+                if (totalAeroForce.length() > 0.01) {
+                    const totalArrow = new THREE.ArrowHelper(
+                        totalAeroForce.clone().normalize(),
+                        center, // Centre de la face
+                        Math.min(totalAeroForce.length() * 0.4, 1.2),
+                        0x00ff00, // Vert pour la force totale
+                        0.15,
+                        0.12
+                    );
+                    this.scene.add(totalArrow);
+                    this.debugArrows.push(totalArrow);
+                }
+
+                // Force résultante totale par face (somme de TOUTES les forces : portance + traînée + gravité)
+                const totalResultantForce = liftForce.clone().add(dragForce).add(gravityPerFace);
+                if (totalResultantForce.length() > 0.01) {
+                    const resultantArrow = new THREE.ArrowHelper(
+                        totalResultantForce.clone().normalize(),
+                        center, // Centre de la face
+                        Math.min(totalResultantForce.length() * 0.3, 1.5),
+                        0xffffff, // Blanc pour la force résultante totale
+                        0.18,
+                        0.15
+                    );
+                    this.scene.add(resultantArrow);
+                    this.debugArrows.push(resultantArrow);
+                }
+            }
+        });
+    }
+
+    /**
      * Ajoute les flèches de debug pour les tensions des lignes
      */
     private addLineTensionDebugArrows(centerWorld: THREE.Vector3): void {
@@ -877,7 +1017,7 @@ export class SimulationApp {
             const leftWorld = ctrlLeft.clone().applyQuaternion(this.kite.quaternion).add(this.kite.position);
             const rightWorld = ctrlRight.clone().applyQuaternion(this.kite.quaternion).add(this.kite.position);
 
-            const handles = this.getHandlePositions();
+            const handles = this.controlBarManager.getHandlePositions(this.kite.position);
             const lineTensions = this.lineSystem.getLineTensions();
 
             // Flèche tension ligne gauche (ROSE)
@@ -930,38 +1070,82 @@ export class SimulationApp {
         this.debugLegend = document.createElement('div');
         this.debugLegend.id = 'debug-legend';
         this.debugLegend.innerHTML = `
-            <h3>🔍 Vecteurs de Debug</h3>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #00ff00;"></span>
-                <span class="legend-text">🟢 Vitesse du kite</span>
+            <h3>🔍 Vecteurs de Debug Complet</h3>
+
+            <div class="legend-section">
+                <h4>🌪️ VENTS</h4>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #00ff00;"></span>
+                    <span class="legend-text">🟢 Vitesse du kite</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #0088ff;"></span>
+                    <span class="legend-text">🔵 Vent réel</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #88ff88;"></span>
+                    <span class="legend-text">🟢 Vent apparent</span>
+                </div>
             </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #88ff88;"></span>
-                <span class="legend-text">🟢 Vent apparent</span>
+
+            <div class="legend-section">
+                <h4>🪁 FORCES PAR FACE</h4>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #00ffff;"></span>
+                    <span class="legend-text">🔵 Portance face 0</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ff00ff;"></span>
+                    <span class="legend-text">🟣 Portance face 1</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ffff00;"></span>
+                    <span class="legend-text">🟡 Portance face 2</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #00ff00;"></span>
+                    <span class="legend-text">🟢 Portance face 3</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ff0000;"></span>
+                    <span class="legend-text">🔴 Traînée par face</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ffaa00;"></span>
+                    <span class="legend-text">🟠 Gravité par face</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #00ff00;"></span>
+                    <span class="legend-text">🟢 Force aéro totale/face</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ffffff;"></span>
+                    <span class="legend-text">⚪ Force résultante/face</span>
+                </div>
             </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #0088ff;"></span>
-                <span class="legend-text">🔵 Portance aéro</span>
+
+            <div class="legend-section">
+                <h4>🔗 CONTRAINTES</h4>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ffaa00;"></span>
+                    <span class="legend-text">🟠 Gravité globale</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ff0088;"></span>
+                    <span class="legend-text">🩷 Tension ligne G</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ff88aa;"></span>
+                    <span class="legend-text">🩷 Tension ligne D</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #8800ff;"></span>
+                    <span class="legend-text">🟣 Couple/rotation</span>
+                </div>
             </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #ff4444;"></span>
-                <span class="legend-text">🔴 Traînée aéro</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #ffaa00;"></span>
-                <span class="legend-text">🟠 Gravité</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #ff0088;"></span>
-                <span class="legend-text">🩷 Tension ligne G</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #ff88aa;"></span>
-                <span class="legend-text">🩷 Tension ligne D</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #8800ff;"></span>
-                <span class="legend-text">🟣 Couple/rotation</span>
+
+            <div class="legend-note">
+                <small>💡 Analyse physique complète par face</small>
             </div>
         `;
 
@@ -970,34 +1154,59 @@ export class SimulationApp {
             position: 'fixed',
             bottom: '20px',
             right: '20px',
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
             border: '2px solid rgba(255, 255, 255, 0.3)',
-            borderRadius: '8px',
-            padding: '12px 16px',
+            borderRadius: '10px',
+            padding: '15px 18px',
             color: 'white',
             fontFamily: 'monospace',
-            fontSize: '12px',
-            lineHeight: '1.4',
-            minWidth: '220px',
-            maxWidth: '280px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
-            backdropFilter: 'blur(10px)',
+            fontSize: '11px',
+            lineHeight: '1.5',
+            minWidth: '280px',
+            maxWidth: '320px',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            boxShadow: '0 6px 20px rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(12px)',
             zIndex: '1000',
             display: this.debugMode ? 'block' : 'none'
         });
 
-        // Style pour le titre
+        // Style pour le titre principal
         const title = this.debugLegend.querySelector('h3') as HTMLElement;
         if (title) {
             Object.assign(title.style, {
-                margin: '0 0 8px 0',
-                fontSize: '13px',
+                margin: '0 0 12px 0',
+                fontSize: '14px',
                 fontWeight: 'bold',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-                paddingBottom: '4px',
-                color: '#88ff88'
+                borderBottom: '2px solid rgba(255, 255, 255, 0.3)',
+                paddingBottom: '6px',
+                color: '#88ff88',
+                textAlign: 'center'
             });
         }
+
+        // Styles pour les sections
+        const sections = this.debugLegend.querySelectorAll('.legend-section') as NodeListOf<HTMLElement>;
+        sections.forEach(section => {
+            Object.assign(section.style, {
+                marginBottom: '12px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                paddingBottom: '8px'
+            });
+
+            const sectionTitle = section.querySelector('h4') as HTMLElement;
+            if (sectionTitle) {
+                Object.assign(sectionTitle.style, {
+                    margin: '0 0 6px 0',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    color: '#ffff88',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                });
+            }
+        });
 
         // Styles pour les items de légende
         const legendItems = this.debugLegend.querySelectorAll('.legend-item') as NodeListOf<HTMLElement>;
@@ -1005,7 +1214,7 @@ export class SimulationApp {
             Object.assign(item.style, {
                 display: 'flex',
                 alignItems: 'center',
-                marginBottom: '4px',
+                marginBottom: '3px',
                 gap: '8px'
             });
         });
@@ -1014,11 +1223,12 @@ export class SimulationApp {
         const colorSquares = this.debugLegend.querySelectorAll('.legend-color') as NodeListOf<HTMLElement>;
         colorSquares.forEach(square => {
             Object.assign(square.style, {
-                width: '12px',
-                height: '12px',
-                borderRadius: '2px',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                flexShrink: '0'
+                width: '14px',
+                height: '14px',
+                borderRadius: '3px',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                flexShrink: '0',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
             });
         });
 
@@ -1026,10 +1236,24 @@ export class SimulationApp {
         const legendTexts = this.debugLegend.querySelectorAll('.legend-text') as NodeListOf<HTMLElement>;
         legendTexts.forEach(text => {
             Object.assign(text.style, {
-                color: '#e0e0e0',
-                fontSize: '11px'
+                color: '#e8e8e8',
+                fontSize: '10px',
+                fontWeight: '500'
             });
         });
+
+        // Style pour la note
+        const note = this.debugLegend.querySelector('.legend-note') as HTMLElement;
+        if (note) {
+            Object.assign(note.style, {
+                marginTop: '10px',
+                paddingTop: '8px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.2)',
+                textAlign: 'center',
+                fontSize: '9px',
+                color: '#cccccc'
+            });
+        }
 
         document.body.appendChild(this.debugLegend);
     }
@@ -1077,8 +1301,8 @@ export class SimulationApp {
         // Mise à jour UI avec métriques V8
         this.updateUIWithV8Metrics();
 
-        // Log périodique détaillé (style SimulationV8)
-        if (this.frameCount % 60 === 0) {
+        // Log périodique détaillé (style SimulationV8) - seulement si en cours de lecture
+        if (this.isPlaying && this.frameCount % 60 === 0) {
             this.logDetailedMetrics();
         }
     };
@@ -1170,5 +1394,20 @@ export class SimulationApp {
         this.kiteState.angularVelocity.set(0, 0, 0);
         this.targetBarRotation = 0;
         this.currentBarRotation = 0;
+    }
+
+    /**
+     * Définit le coefficient d'amélioration de la portance
+     */
+    public setLiftCoefficient(coefficient: number): void {
+        this.liftCoefficient = Math.max(0, Math.min(20.0, coefficient)); // Limiter entre 0 et 20
+        console.log(`🪁 Coefficient de portance: ${this.liftCoefficient.toFixed(2)}x`);
+    }
+
+    /**
+     * Obtient le coefficient de portance actuel
+     */
+    public getLiftCoefficient(): number {
+        return this.liftCoefficient;
     }
 }

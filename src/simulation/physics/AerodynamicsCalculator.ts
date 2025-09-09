@@ -12,6 +12,26 @@ import * as THREE from 'three';
 import { PhysicsConstants, KiteGeometry, CONFIG, AerodynamicForces, SimulationMetrics } from '../core/constants';
 import { Kite } from '@objects/Kite';
 
+/**
+ * Interface étendue pour les détails des forces par surface
+ * Inclut les vecteurs de normale pour visualisation et debug
+ */
+export interface SurfaceForceDetail {
+    surfaceIndex: number;
+    center: THREE.Vector3;
+    normal: THREE.Vector3;
+    localNormal: THREE.Vector3;      // Normale locale (avant transformation)
+    worldNormal: THREE.Vector3;      // Normale monde (après transformation)
+    liftForce: THREE.Vector3;
+    dragForce: THREE.Vector3;
+    aoa_deg: number;
+    cl: number;
+    cd: number;
+    cosIncidence: number;
+    facePosition: 'avant' | 'arriere' | 'centre';
+    contribution: number; // Poids de contribution (0-1)
+}
+
 export class AerodynamicsCalculator {
     /**
      * Calcule comment le vent pousse sur le cerf-volant
@@ -71,8 +91,8 @@ export class AerodynamicsCalculator {
             const facing = windDir.dot(normaleMonde);
             const cosIncidence = Math.max(0, Math.abs(facing));
 
-            // Filtrage des faces peu exposées au vent
-            if (cosIncidence < 0.1) {
+            // Filtrage des faces peu exposées au vent (seuil réduit pour meilleure portance)
+            if (cosIncidence < 0.05) {
                 return; // Face non contributive
             }
 
@@ -148,6 +168,153 @@ export class AerodynamicsCalculator {
             torque: totalTorque.multiplyScalar(torqueScale),
             leftForce,    // Exposer les forces pour analyse
             rightForce    // Permet de voir l'asymétrie émergente
+        };
+    }
+
+    /**
+     * Calcule les détails des forces par surface avec les vecteurs de normale
+     * Utile pour la visualisation et le debug des forces aérodynamiques
+     */
+    static calculateForcesWithNormals(
+        apparentWind: THREE.Vector3,
+        kiteOrientation: THREE.Quaternion,
+        kite?: Kite
+    ): { forces: AerodynamicForces; surfaceDetails: SurfaceForceDetail[] } {
+        const windSpeed = apparentWind.length();
+        if (windSpeed < PhysicsConstants.EPSILON) {
+            return {
+                forces: {
+                    lift: new THREE.Vector3(),
+                    drag: new THREE.Vector3(),
+                    torque: new THREE.Vector3()
+                },
+                surfaceDetails: []
+            };
+        }
+
+        const windDir = apparentWind.clone().normalize();
+        const dynamicPressure = 0.5 * CONFIG.physics.airDensity * windSpeed * windSpeed;
+
+        let leftForce = new THREE.Vector3();
+        let rightForce = new THREE.Vector3();
+        let totalForce = new THREE.Vector3();
+        let totalTorque = new THREE.Vector3();
+        const surfaceDetails: SurfaceForceDetail[] = [];
+
+        // Calcul détaillé pour chaque face avec stockage des normales
+        KiteGeometry.SURFACES.forEach((surface, faceIndex) => {
+            // Géométrie de la face
+            const edge1 = surface.vertices[1].clone().sub(surface.vertices[0]);
+            const edge2 = surface.vertices[2].clone().sub(surface.vertices[0]);
+
+            // NORMALE LOCALE (avant transformation)
+            const localNormal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+            // Ajustement selon position avant/arrière
+            const faceCenterZ = (surface.vertices[0].z + surface.vertices[1].z + surface.vertices[2].z) / 3;
+            const adjustedLocalNormal = localNormal.clone();
+            if (faceCenterZ < 0) { // Face arrière
+                adjustedLocalNormal.negate();
+            }
+
+            // NORMALE MONDE (après transformation)
+            const worldNormal = adjustedLocalNormal.clone().applyQuaternion(kiteOrientation);
+
+            // Incidence du vent
+            const facing = windDir.dot(worldNormal);
+            const cosIncidence = Math.max(0, Math.abs(facing));
+
+            // Filtrage des faces peu exposées au vent (seuil réduit pour meilleure portance)
+            if (cosIncidence < 0.05) {
+                return; // Face non contributive
+            }
+
+            // Calcul des coefficients aérodynamiques (simplifié)
+            const aoa_rad = Math.asin(facing) - Math.PI / 2;
+            const cl = Math.max(0, Math.cos(aoa_rad)); // Coefficient de portance simplifié
+            const cd = 0.1 + 0.1 * Math.sin(aoa_rad) * Math.sin(aoa_rad); // Coefficient de traînée simplifié
+            const aoa_deg = (Math.asin(facing) - Math.PI / 2) * 180 / Math.PI;
+
+            // Force aérodynamique
+            const forceMagnitude = dynamicPressure * surface.area * cosIncidence;
+            const forceDirection = facing >= 0 ? worldNormal.clone() : worldNormal.clone().negate();
+            const force = forceDirection.multiplyScalar(forceMagnitude);
+
+            // Centre de pression
+            const centreLocal = surface.vertices[0].clone()
+                .add(surface.vertices[1])
+                .add(surface.vertices[2])
+                .divideScalar(3);
+
+            // Ajustement du centre de pression
+            if (faceCenterZ > 0) {
+                centreLocal.z += 0.05; // Avant
+            } else {
+                centreLocal.z -= 0.05; // Arrière
+            }
+
+            const centreWorld = centreLocal.clone().applyQuaternion(kiteOrientation)
+                .add(kite ? kite.position : new THREE.Vector3());
+
+            // Classification et contribution
+            const isLeft = centreLocal.x < -0.01;
+            const isRight = centreLocal.x > 0.01;
+            const facePosition = faceCenterZ > 0.01 ? 'avant' : (faceCenterZ < -0.01 ? 'arriere' : 'centre');
+            const contribution = surface.area / KiteGeometry.TOTAL_AREA;
+
+            if (isLeft) {
+                leftForce.add(force);
+            } else if (isRight) {
+                rightForce.add(force);
+            } else {
+                leftForce.add(force.clone().multiplyScalar(0.5));
+                rightForce.add(force.clone().multiplyScalar(0.5));
+            }
+
+            // Couple
+            const centerOfMass = kite ? kite.position : new THREE.Vector3();
+            const leverArm = centreWorld.clone().sub(centerOfMass);
+            const torque = new THREE.Vector3().crossVectors(leverArm, force);
+
+            // Accumulation
+            totalForce.add(force.clone().multiplyScalar(contribution));
+            totalTorque.add(torque.clone().multiplyScalar(contribution));
+
+            // Stockage des détails avec les normales
+            surfaceDetails.push({
+                surfaceIndex: faceIndex,
+                center: centreWorld,
+                normal: worldNormal,           // Normale monde (principale)
+                localNormal: adjustedLocalNormal, // Normale locale
+                worldNormal: worldNormal,      // Normale monde (dupliquée pour clarté)
+                liftForce: force.clone(),
+                dragForce: new THREE.Vector3(), // Traînée intégrée
+                aoa_deg,
+                cl,
+                cd,
+                cosIncidence,
+                facePosition,
+                contribution
+            });
+        });
+
+        // Forces totales
+        const lift = totalForce.clone().multiplyScalar(CONFIG.aero.liftScale);
+        const drag = new THREE.Vector3();
+
+        const baseTotalMag = Math.max(PhysicsConstants.EPSILON, totalForce.length());
+        const scaledTotalMag = lift.clone().add(drag).length();
+        const torqueScale = Math.max(0.1, Math.min(3, scaledTotalMag / baseTotalMag));
+
+        return {
+            forces: {
+                lift,
+                drag,
+                torque: totalTorque.multiplyScalar(torqueScale),
+                leftForce,
+                rightForce
+            },
+            surfaceDetails
         };
     }
 

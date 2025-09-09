@@ -107,6 +107,22 @@ export class CompactUI {
                             margin: 8px 0 4px 0;
                             -webkit-appearance: none;
                         ">
+                        <!-- Slider coefficient de portance -->
+                        <div style="margin-top: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label style="color: #cbd5e1; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Portance</label>
+                                <span style="color: #f1f5f9; font-size: 11px; font-weight: 600;" id="lift-coeff-display">${CONFIG.aero.liftCoefficient.toFixed(1)}x</span>
+                            </div>
+                            <input type="range" id="lift-coefficient" min="0" max="20" step="0.1" value="${CONFIG.aero.liftCoefficient}" style="
+                                width: 100%;
+                                height: 6px;
+                                background: linear-gradient(90deg, #1e293b 0%, #10b981 50%, #059669 100%);
+                                border-radius: 3px;
+                                outline: none;
+                                -webkit-appearance: none;
+                            ">
+                        </div>
+
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
                             <input type="range" id="wind-dir" min="0" max="360" value="${CONFIG.wind.defaultDirection}" style="
                                 width: 100%;
@@ -243,7 +259,7 @@ export class CompactUI {
                 }
             </style>
         `;
-        
+
         document.body.appendChild(panel);
         this.controlPanel = panel;
         this.setupEventListeners();
@@ -256,11 +272,11 @@ export class CompactUI {
             const content = document.getElementById('panel-content');
             const toggleBtn = document.getElementById('toggle-btn');
             const panel = document.getElementById('control-panel');
-            
+
             if (!content || !toggleBtn || !panel) return;
-            
+
             this.isCollapsed = !this.isCollapsed;
-            
+
             if (this.isCollapsed) {
                 content.style.display = 'none';
                 toggleBtn.style.transform = 'rotate(180deg)';
@@ -304,6 +320,17 @@ export class CompactUI {
                 const turbulence = parseFloat(turbulenceSlider.value);
                 this.simulation.setWindParams({ turbulence });
                 turbDisplay.textContent = turbulence.toString();
+            };
+        }
+
+        // Coefficient de portance
+        const liftCoeffSlider = document.getElementById('lift-coefficient') as HTMLInputElement;
+        const liftCoeffDisplay = document.getElementById('lift-coeff-display')!;
+        if (liftCoeffSlider && liftCoeffDisplay) {
+            liftCoeffSlider.oninput = () => {
+                const coefficient = parseFloat(liftCoeffSlider.value);
+                this.simulation.setLiftCoefficient(coefficient);
+                liftCoeffDisplay.textContent = coefficient.toFixed(1) + 'x';
             };
         }
 
@@ -359,7 +386,7 @@ export class CompactUI {
         const playPauseBtn = document.getElementById('play-pause-btn');
         if (playPauseBtn) {
             playPauseBtn.innerHTML = isPlaying ? '⏸️ Pause' : '▶️ Play';
-            playPauseBtn.style.background = isPlaying 
+            playPauseBtn.style.background = isPlaying
                 ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
                 : 'linear-gradient(135deg, #059669 0%, #0d9488 100%)';
         }
@@ -368,10 +395,10 @@ export class CompactUI {
         const debugBtn = document.getElementById('debug-toggle-btn');
         if (debugBtn) {
             debugBtn.innerHTML = debugMode ? '🔍 Debug ON' : '🔍 Debug';
-            debugBtn.style.background = debugMode 
+            debugBtn.style.background = debugMode
                 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
                 : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)';
-            debugBtn.style.boxShadow = debugMode 
+            debugBtn.style.boxShadow = debugMode
                 ? '0 2px 8px rgba(16, 185, 129, 0.4)'
                 : '0 2px 8px rgba(124, 58, 237, 0.3)';
         }

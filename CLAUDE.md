@@ -72,7 +72,12 @@ npx tsc --noEmit   # Type checking without file emission
 ```
 
 ### Tests and Quality
-No test or linting scripts are currently configured. Use `npx tsc --noEmit` to check TypeScript types.
+```bash
+npx tsc --noEmit   # Type checking without file emission
+npx tsc           # Check TypeScript compilation
+```
+
+No test or linting frameworks are currently configured. The project relies on TypeScript's strict mode for quality assurance.
 
 ## File Structure
 
@@ -216,10 +221,13 @@ export class MyObject extends StructuredObject implements ICreatable {
 The project features a sophisticated physics simulation system with **SimulationV8 integration**:
 
 ### Main Simulation Files
+- **`index.html`**: Default simulation interface (launches SimulationApp.ts)
+- **`simulation.html`**: Alternative simulation interface 
+- **`test-simulation.html`**: Debug simulation interface
+- **`cao.html`**: CAD modeling interface (launches main.ts)
 - **`/src/simulation/SimulationApp.ts`**: Main simulation application with V8 enhancements
 - **`/src/simulation/simulation.ts`**: Legacy stable physics simulation
-- **`/simulation.html`**: Primary simulation interface
-- **`/test-simulation.html`**: Debug simulation interface
+- **`/src/main.ts`**: CAD application entry point
 
 ### SimulationV8 Integration - Production Ready
 
@@ -374,17 +382,19 @@ lineConstraints → positionCorrection → orientationCorrection
 
 ### CAD Development
 1. User launches `npm run dev` in external terminal
-2. Edit objects in `/src/objects/[category]/`
-3. HMR automatically recompiles
-4. Test with Explode to see anatomical points
-5. Export to Godot with dedicated button
+2. Navigate to `http://localhost:3000/cao.html` (or use build's multi-page setup)
+3. Edit objects in `/src/objects/[category]/`
+4. HMR automatically recompiles via Vite
+5. Test with Explode to see anatomical points
+6. Export to Godot with dedicated button
 
 ### Simulation Development
-1. Main simulation: `simulation.html` 
-2. Debug mode: `test-simulation.html`
-3. Force vectors visible when debug enabled
-4. Real-time telemetry in console with V8 metrics
-5. Interactive controls for wind, line length, etc.
+1. Default simulation: `http://localhost:3000` (index.html → SimulationApp.ts)
+2. Alternative simulation: `http://localhost:3000/simulation.html`
+3. Debug mode: `http://localhost:3000/test-simulation.html`
+4. Force vectors visible when debug enabled
+5. Real-time telemetry in console with V8 metrics
+6. Interactive controls for wind, line length, etc.
 
 ## Migration Paths
 
