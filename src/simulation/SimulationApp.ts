@@ -988,6 +988,26 @@ export class SimulationApp {
                     this.debugArrows.push(totalArrow);
                 }
 
+                // EFFET D'EXTRADOS : Flèche spéciale pour visualiser l'effet Venturi
+                const isExtrados = surface.center.z < 0; // Face arrière = extrados
+                if (isExtrados && surface.cosIncidence > 0.1) {
+                    const extradosFactor = 1.3 + (0.2 * Math.sin(Math.PI * surface.cosIncidence));
+                    const baseForceMagnitude = dynamicPressure * surface.area * surface.cosIncidence;
+                    const extradosForceMagnitude = baseForceMagnitude * extradosFactor;
+                    const extradosForce = surface.normal.clone().multiplyScalar(extradosForceMagnitude);
+
+                    const extradosArrow = new THREE.ArrowHelper(
+                        extradosForce.clone().normalize(),
+                        center.clone().add(new THREE.Vector3(0, 0.4, 0)), // Au-dessus des autres
+                        Math.min(extradosForce.length() * 0.4, 2.0),
+                        0x00ff88, // Vert clair pour l'effet d'extrados
+                        0.2,
+                        0.18
+                    );
+                    this.scene.add(extradosArrow);
+                    this.debugArrows.push(extradosArrow);
+                }
+
                 // Force résultante totale par face (somme de TOUTES les forces : portance + traînée + gravité)
                 const totalResultantForce = liftForce.clone().add(dragForce).add(gravityPerFace);
                 if (totalResultantForce.length() > 0.01) {
@@ -1117,6 +1137,10 @@ export class SimulationApp {
                 <div class="legend-item">
                     <span class="legend-color" style="background: #00ff00;"></span>
                     <span class="legend-text">🟢 Force aéro totale/face</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #00ff88;"></span>
+                    <span class="legend-text">🟢 Effet d'extrados</span>
                 </div>
                 <div class="legend-item">
                     <span class="legend-color" style="background: #ffffff;"></span>
