@@ -49,63 +49,48 @@ export class AerodynamicsCalculator {
         let totalForce = new THREE.Vector3();
         let totalTorque = new THREE.Vector3();
 
-        // On examine chaque triangle du cerf-volant un par un
-        // C'est comme vérifier comment le vent frappe chaque panneau d'un parasol
+        // MÉTHODE UNIFIÉE POUR LES 4 FACES - Même calcul pour chaque surface
         KiteGeometry.SURFACES.forEach((surface) => {
-            // Pour comprendre comment le vent frappe ce triangle,
-            // on doit savoir dans quelle direction il "regarde"
-            // (comme l'orientation d'un panneau solaire)
+            // ÉTAPE 1 : Calcul de la normale de la surface
             const edge1 = surface.vertices[1].clone().sub(surface.vertices[0]);
             const edge2 = surface.vertices[2].clone().sub(surface.vertices[0]);
             const normaleLocale = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
 
-            // 2. Rotation de la normale selon l'orientation du kite
+            // ÉTAPE 2 : Transformation en coordonnées monde
             const normaleMonde = normaleLocale.clone().applyQuaternion(kiteOrientation);
 
-            // Maintenant on vérifie sous quel angle le vent frappe ce triangle
-            // C'est comme mettre votre main par la fenêtre de la voiture :
-            // - Main à plat face au vent = beaucoup de force
-            // - Main de profil = peu de force
+            // ÉTAPE 3 : Calcul de l'incidence du vent
             const facing = windDir.dot(normaleMonde);
             const cosIncidence = Math.max(0, Math.abs(facing));
 
-            // Si le vent glisse sur le côté (angle = 0), pas de force
-            if (cosIncidence <= PhysicsConstants.EPSILON) {
-                return;
-            }
-
-            // 4. Force perpendiculaire à la surface (pression aérodynamique)
-            const normalDir = facing >= 0 ? normaleMonde.clone() : normaleMonde.clone().negate();
-
-            // 5. Intensité = pression dynamique × surface × cos(angle)
+            // ÉTAPE 4 : Calcul de la force aérodynamique (même formule pour toutes les faces)
             const forceMagnitude = dynamicPressure * surface.area * cosIncidence;
+            const normalDir = facing >= 0 ? normaleMonde.clone() : normaleMonde.clone().negate();
             const force = normalDir.multiplyScalar(forceMagnitude);
 
-            // 6. Centre de pression = centre géométrique du triangle
-            const centre = surface.vertices[0].clone()
+            // ÉTAPE 5 : Centre de pression (même méthode pour toutes les faces)
+            const centreLocal = surface.vertices[0].clone()
                 .add(surface.vertices[1])
                 .add(surface.vertices[2])
                 .divideScalar(3);
+            const centreWorld = centreLocal.clone().applyQuaternion(kiteOrientation)
+                .add(kite ? kite.position : new THREE.Vector3());
 
-            // On note si cette force est sur le côté gauche ou droit
-            // C'est important car si un côté a plus de force,
-            // le kite va tourner (comme un bateau avec une seule rame)
-            const isLeft = centre.x < 0;  // Négatif = gauche, Positif = droite
-
+            // ÉTAPE 6 : Classification gauche/droite (même logique pour toutes les faces)
+            const isLeft = centreLocal.x < 0;
             if (isLeft) {
-                leftForce.add(force);  // On additionne à la force totale gauche
+                leftForce.add(force);
             } else {
-                rightForce.add(force); // On additionne à la force totale droite
+                rightForce.add(force);
             }
 
-            totalForce.add(force);
+            // ÉTAPE 7 : Calcul du couple (même méthode pour toutes les faces)
+            const centerOfMass = kite ? kite.position : new THREE.Vector3();
+            const leverArm = centreWorld.clone().sub(centerOfMass);
+            const torque = new THREE.Vector3().crossVectors(leverArm, force);
 
-            // Le couple, c'est ce qui fait tourner le kite
-            // Imaginez une porte : si vous poussez près des gonds, elle tourne peu
-            // Si vous poussez loin des gonds, elle tourne beaucoup
-            // Ici, plus la force est loin du centre, plus elle fait tourner
-            const centreWorld = centre.clone().applyQuaternion(kiteOrientation);
-            const torque = new THREE.Vector3().crossVectors(centreWorld, force);
+            // Accumulation des forces totales
+            totalForce.add(force);
             totalTorque.add(torque);
         });
 
