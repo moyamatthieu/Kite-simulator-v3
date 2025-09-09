@@ -91,8 +91,8 @@ export class AerodynamicsCalculator {
             const facing = windDir.dot(normaleMonde);
             const cosIncidence = Math.max(0, Math.abs(facing));
 
-            // Filtrage des faces peu exposées au vent (seuil très permissif pour vol transversal)
-            if (cosIncidence < 0.001) {
+            // Filtrage des faces peu exposées au vent (seuil réaliste pour physique pure)
+            if (cosIncidence < 0.05) {
                 return; // Face non contributive
             }
 
@@ -224,8 +224,8 @@ export class AerodynamicsCalculator {
             const facing = windDir.dot(worldNormal);
             const cosIncidence = Math.max(0, Math.abs(facing));
 
-            // Filtrage des faces peu exposées au vent (seuil plus permissif pour éviter la perte de vitesse)
-            if (cosIncidence < 0.01) {
+            // Filtrage des faces peu exposées au vent (seuil réaliste pour physique pure)
+            if (cosIncidence < 0.05) {
                 return; // Face non contributive
             }
 

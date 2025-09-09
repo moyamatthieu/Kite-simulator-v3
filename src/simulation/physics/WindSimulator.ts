@@ -51,31 +51,12 @@ export class WindSimulator {
         }
 
         // Le vent apparent = vent réel - vitesse du kite
-        // Si le kite va vite vers l'avant, il "crée" du vent de face
-        // Pour le vol transversal, on doit préserver la composante perpendiculaire au vent
+        // PHYSIQUE PURE : pas de comportement artificiel
         const apparent = windVector.clone().sub(kiteVelocity);
 
-        // Correction pour vol transversal : éviter la perte de vitesse latérale
-        // Si le kite vole perpendiculairement au vent, préserver sa vitesse
-        const windDirection = windVector.clone().normalize();
-        const kiteSpeed = kiteVelocity.length();
-
-        if (kiteSpeed > 1.0) { // Seulement si le kite a une vitesse significative
-            const kiteDirection = kiteVelocity.clone().normalize();
-            const dotProduct = Math.abs(windDirection.dot(kiteDirection));
-
-            // Si le kite vole presque perpendiculairement au vent (angle > 60°)
-            if (dotProduct < 0.5) {
-                // Augmenter légèrement la composante perpendiculaire du vent apparent
-                const perpendicularComponent = kiteDirection.clone()
-                    .multiplyScalar(kiteSpeed * 0.1); // 10% de la vitesse du kite
-                apparent.add(perpendicularComponent);
-            }
-        }
-
-        // On limite pour éviter des valeurs irréalistes (limite augmentée pour vol transversal)
-        if (apparent.length() > CONFIG.wind.maxApparentSpeed * 1.5) {
-            apparent.setLength(CONFIG.wind.maxApparentSpeed * 1.5);
+        // On limite pour éviter des valeurs irréalistes
+        if (apparent.length() > CONFIG.wind.maxApparentSpeed) {
+            apparent.setLength(CONFIG.wind.maxApparentSpeed);
         }
         return apparent;
     }
