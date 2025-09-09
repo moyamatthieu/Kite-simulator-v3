@@ -49,49 +49,79 @@ export class AerodynamicsCalculator {
         let totalForce = new THREE.Vector3();
         let totalTorque = new THREE.Vector3();
 
-        // MÉTHODE UNIFIÉE POUR LES 4 FACES - Même calcul pour chaque surface
-        KiteGeometry.SURFACES.forEach((surface) => {
-            // ÉTAPE 1 : Calcul de la normale de la surface
+        // MÉTHODE UNIFIÉE AVEC CARACTÉRISTIQUES SPÉCIFIQUES PAR FACE
+        KiteGeometry.SURFACES.forEach((surface, faceIndex) => {
+            // ÉTAPE 1 : Géométrie spécifique de chaque face
             const edge1 = surface.vertices[1].clone().sub(surface.vertices[0]);
             const edge2 = surface.vertices[2].clone().sub(surface.vertices[0]);
+
+            // Calcul de la normale avec orientation spécifique à chaque face
             const normaleLocale = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+            // Ajustement d'orientation selon la position de la face (avant/arrière)
+            const faceCenterZ = (surface.vertices[0].z + surface.vertices[1].z + surface.vertices[2].z) / 3;
+            if (faceCenterZ < 0) { // Face arrière - inversion de la normale
+                normaleLocale.negate();
+            }
 
             // ÉTAPE 2 : Transformation en coordonnées monde
             const normaleMonde = normaleLocale.clone().applyQuaternion(kiteOrientation);
 
-            // ÉTAPE 3 : Calcul de l'incidence du vent
+            // ÉTAPE 3 : Calcul de l'incidence du vent (même formule pour toutes)
             const facing = windDir.dot(normaleMonde);
             const cosIncidence = Math.max(0, Math.abs(facing));
 
-            // ÉTAPE 4 : Calcul de la force aérodynamique (même formule pour toutes les faces)
+            // Filtrage des faces peu exposées au vent
+            if (cosIncidence < 0.1) {
+                return; // Face non contributive
+            }
+
+            // ÉTAPE 4 : Force aérodynamique proportionnelle à la surface
             const forceMagnitude = dynamicPressure * surface.area * cosIncidence;
             const normalDir = facing >= 0 ? normaleMonde.clone() : normaleMonde.clone().negate();
             const force = normalDir.multiplyScalar(forceMagnitude);
 
-            // ÉTAPE 5 : Centre de pression (même méthode pour toutes les faces)
+            // ÉTAPE 5 : Centre de pression spécifique à chaque face
             const centreLocal = surface.vertices[0].clone()
                 .add(surface.vertices[1])
                 .add(surface.vertices[2])
                 .divideScalar(3);
+
+            // Ajustement du centre de pression selon la face
+            // Faces avant : centre de pression plus en avant
+            // Faces arrière : centre de pression plus en arrière
+            if (faceCenterZ > 0) {
+                centreLocal.z += 0.05; // Faces avant : CP plus en avant
+            } else {
+                centreLocal.z -= 0.05; // Faces arrière : CP plus en arrière
+            }
+
             const centreWorld = centreLocal.clone().applyQuaternion(kiteOrientation)
                 .add(kite ? kite.position : new THREE.Vector3());
 
-            // ÉTAPE 6 : Classification gauche/droite (même logique pour toutes les faces)
-            const isLeft = centreLocal.x < 0;
+            // ÉTAPE 6 : Classification gauche/droite avec précision
+            const isLeft = centreLocal.x < -0.01;  // Tolérance pour éviter les ambiguïtés
+            const isRight = centreLocal.x > 0.01;
+
             if (isLeft) {
                 leftForce.add(force);
-            } else {
+            } else if (isRight) {
                 rightForce.add(force);
+            } else {
+                // Face centrale - contribution équilibrée
+                leftForce.add(force.clone().multiplyScalar(0.5));
+                rightForce.add(force.clone().multiplyScalar(0.5));
             }
 
-            // ÉTAPE 7 : Calcul du couple (même méthode pour toutes les faces)
+            // ÉTAPE 7 : Couple avec bras de levier spécifique
             const centerOfMass = kite ? kite.position : new THREE.Vector3();
             const leverArm = centreWorld.clone().sub(centerOfMass);
             const torque = new THREE.Vector3().crossVectors(leverArm, force);
 
-            // Accumulation des forces totales
-            totalForce.add(force);
-            totalTorque.add(torque);
+            // Accumulation avec poids selon l'importance de la face
+            const faceWeight = surface.area / KiteGeometry.TOTAL_AREA;
+            totalForce.add(force.clone().multiplyScalar(faceWeight));
+            totalTorque.add(torque.clone().multiplyScalar(faceWeight));
         });
 
         // PHYSIQUE ÉMERGENTE : Le couple vient de la différence G/D
