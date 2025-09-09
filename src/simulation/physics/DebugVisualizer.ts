@@ -11,7 +11,7 @@
  */
 
 import * as THREE from 'three';
-import { AerodynamicsCalculator, DetailedAerodynamicForces } from './AerodynamicsCalculator';
+import { AerodynamicsCalculator } from './AerodynamicsCalculator';
 import { WindSimulator } from './WindSimulator';
 import { KiteController, KiteWarnings } from './KiteController';
 import { LineSystemV8 } from './LineSystemV8';
@@ -21,8 +21,6 @@ import { Kite } from '@objects/Kite';
 export class DebugVisualizer {
     private scene: THREE.Scene;
     private debugArrows: THREE.ArrowHelper[] = [];
-    private perFaceLiftArrows: THREE.ArrowHelper[] = [];
-    private perFaceWindArrows: THREE.ArrowHelper[] = [];
     private trajectoryPoints: THREE.Vector3[] = [];
     private trajectoryLine: THREE.Line | null = null;
     private forceLabels: Map<string, THREE.Sprite> = new Map();
@@ -37,9 +35,7 @@ export class DebugVisualizer {
         gravity: 0xffaa00,       // Orange - gravité
         wind: 0x88ff00,          // Vert clair - vent
         lineTension: 0xff0088,   // Rose - tension lignes
-        torque: 0x8800ff,        // Violet - couple
-        subLift: 0x6495ED,       // Bleu plus clair pour sous-portances
-        subWind: 0x90EE90        // Vert plus clair pour sous-vents
+        torque: 0x8800ff         // Violet - couple
     };
 
     constructor(scene: THREE.Scene) {
@@ -75,60 +71,36 @@ export class DebugVisualizer {
 
         const kiteState = kiteController.getState();
         const kitePosition = kite.position.clone();
-        const kiteOrientation = kite.quaternion;
 
-        // Calcul des forces aérodynamiques détaillées
-        const apparentWind = windSimulator.getApparentWind(kiteState.velocity, 0);
-        const aeroForces = AerodynamicsCalculator.calculateForces(apparentWind, kiteOrientation, kite);
-
-        // Calculer le centre de pression global pour les forces principales
-        const centerOfPressure = this.calculateCenterOfPressure(aeroForces.perFaceData, kitePosition);
+        // Calculer le centre géométrique du kite
+        const centerLocal = new THREE.Vector3(0, 0.325, 0); // Entre NEZ et SPINE_BAS
+        const centerWorld = centerLocal.clone()
+            .applyQuaternion(kite.quaternion)
+            .add(kitePosition);
 
         // 1. Flèche de vitesse
-        this.addVelocityArrow(centerOfPressure, kiteState.velocity);
+        this.addVelocityArrow(centerWorld, kiteState.velocity);
 
-        // 2. Flèches des forces aérodynamiques (principales et par face)
-        this.addAerodynamicArrows(centerOfPressure, aeroForces);
+        // 2. Flèches des forces aérodynamiques
+        this.addAerodynamicArrows(centerWorld, kite, windSimulator);
 
         // 3. Flèche de gravité
-        this.addGravityArrow(centerOfPressure);
+        this.addGravityArrow(centerWorld);
 
-        // 4. Flèche du vent (principale et par face)
-        this.addWindArrows(aeroForces.perFaceData, windSimulator, kitePosition);
+        // 4. Flèche du vent
+        this.addWindArrow(centerWorld, windSimulator, kitePosition);
 
         // 5. Flèches de tension des lignes
         this.addLineTensionArrows(kite, lineSystem, controlRotation, pilotPosition);
 
         // 6. Flèche de couple (si présent)
-        this.addTorqueArrow(centerOfPressure, kiteState.angularVelocity);
+        this.addTorqueArrow(centerWorld, kiteState.angularVelocity);
 
         // 7. Mettre à jour la trajectoire
         this.updateTrajectory(kitePosition);
 
         // 8. Mettre à jour les labels de forces
         this.updateForceLabels(kite, kiteController, windSimulator, lineSystem, controlRotation, pilotPosition);
-    }
-
-    /**
-     * Calcule le centre de pression moyen pondéré par la force de chaque face.
-     */
-    private calculateCenterOfPressure(perFaceData: any[], fallbackPosition: THREE.Vector3): THREE.Vector3 {
-        if (perFaceData.length === 0) {
-            return fallbackPosition;
-        }
-
-        const totalForceMagnitude = perFaceData.reduce((sum, data) => sum + data.force.length(), 0);
-        if (totalForceMagnitude < 0.001) {
-            return fallbackPosition;
-        }
-
-        const weightedCenter = new THREE.Vector3();
-        perFaceData.forEach(data => {
-            const weight = data.force.length() / totalForceMagnitude;
-            weightedCenter.add(data.center.clone().multiplyScalar(weight));
-        });
-
-        return weightedCenter;
     }
 
     /**
@@ -150,15 +122,26 @@ export class DebugVisualizer {
     }
 
     /**
-     * Ajoute les flèches des forces aérodynamiques (principale et par face).
+     * Ajoute les flèches des forces aérodynamiques
      */
-    private addAerodynamicArrows(centerOfPressure: THREE.Vector3, aeroForces: DetailedAerodynamicForces): void {
-        // Flèche de portance principale (somme)
-        if (aeroForces.lift.length() > 0.01) {
+    private addAerodynamicArrows(position: THREE.Vector3, kite: Kite, windSimulator: WindSimulator): void {
+        const apparentWind = windSimulator.getApparentWind(
+            new THREE.Vector3(), // vélocité temporaire pour le calcul
+            0
+        );
+
+        const { lift, drag } = AerodynamicsCalculator.calculateForces(
+            apparentWind,
+            kite.quaternion,
+            kite
+        );
+
+        // Flèche de portance
+        if (lift.length() > 0.01) {
             const liftArrow = new THREE.ArrowHelper(
-                aeroForces.lift.clone().normalize(),
-                centerOfPressure,
-                Math.min(Math.sqrt(aeroForces.lift.length()) * 0.3, 2),
+                lift.clone().normalize(),
+                position,
+                Math.min(Math.sqrt(lift.length()) * 0.3, 2),
                 this.COLORS.lift,
                 0.2,
                 0.15
@@ -167,21 +150,19 @@ export class DebugVisualizer {
             this.debugArrows.push(liftArrow);
         }
 
-        // Flèches de portance pour chaque face
-        aeroForces.perFaceData.forEach(data => {
-            if (data.force.length() > 0.01) {
-                const faceLiftArrow = new THREE.ArrowHelper(
-                    data.force.clone().normalize(),
-                    data.center,
-                    Math.min(Math.sqrt(data.force.length()) * 0.3, 1.5),
-                    this.COLORS.subLift,
-                    0.1,
-                    0.08
-                );
-                this.scene.add(faceLiftArrow);
-                this.perFaceLiftArrows.push(faceLiftArrow);
-            }
-        });
+        // Flèche de traînée
+        if (drag.length() > 0.01) {
+            const dragArrow = new THREE.ArrowHelper(
+                drag.clone().normalize(),
+                position,
+                Math.min(Math.sqrt(drag.length()) * 0.3, 2),
+                this.COLORS.drag,
+                0.2,
+                0.15
+            );
+            this.scene.add(dragArrow);
+            this.debugArrows.push(dragArrow);
+        }
     }
 
     /**
@@ -202,16 +183,15 @@ export class DebugVisualizer {
     }
 
     /**
-     * Ajoute les flèches du vent (global et par face).
+     * Ajoute la flèche du vent
      */
-    private addWindArrows(perFaceData: any[], windSimulator: WindSimulator, kitePosition: THREE.Vector3): void {
-        // Flèche du vent global (pour référence)
-        const globalWind = windSimulator.getWindAt(kitePosition);
-        if (globalWind.length() > 0.1) {
+    private addWindArrow(position: THREE.Vector3, windSimulator: WindSimulator, kitePosition: THREE.Vector3): void {
+        const wind = windSimulator.getWindAt(kitePosition);
+        if (wind.length() > 0.1) {
             const windArrow = new THREE.ArrowHelper(
-                globalWind.clone().normalize(),
-                kitePosition.clone().add(new THREE.Vector3(0, 2, 0)), // Décaler vers le haut
-                Math.min(globalWind.length() * 0.2, 2),
+                wind.clone().normalize(),
+                position.clone().add(new THREE.Vector3(0, 1, 0)), // Décaler vers le haut
+                Math.min(wind.length() * 0.2, 2),
                 this.COLORS.wind,
                 0.2,
                 0.15
@@ -219,22 +199,6 @@ export class DebugVisualizer {
             this.scene.add(windArrow);
             this.debugArrows.push(windArrow);
         }
-
-        // Flèches du vent apparent pour chaque face
-        perFaceData.forEach(data => {
-            if (data.apparentWind.length() > 0.1) {
-                const faceWindArrow = new THREE.ArrowHelper(
-                    data.apparentWind.clone().normalize(),
-                    data.center.clone().add(data.normal.clone().multiplyScalar(0.1)), // Légèrement décalé
-                    Math.min(data.apparentWind.length() * 0.2, 1.5),
-                    this.COLORS.subWind,
-                    0.1,
-                    0.08
-                );
-                this.scene.add(faceWindArrow);
-                this.perFaceWindArrows.push(faceWindArrow);
-            }
-        });
     }
 
     /**
@@ -423,14 +387,10 @@ export class DebugVisualizer {
      * Efface toutes les flèches de debug
      */
     private clearDebugArrows(): void {
-        this.debugArrows.forEach(arrow => this.scene.remove(arrow));
+        this.debugArrows.forEach(arrow => {
+            this.scene.remove(arrow);
+        });
         this.debugArrows = [];
-
-        this.perFaceLiftArrows.forEach(arrow => this.scene.remove(arrow));
-        this.perFaceLiftArrows = [];
-
-        this.perFaceWindArrows.forEach(arrow => this.scene.remove(arrow));
-        this.perFaceWindArrows = [];
     }
 
     /**
@@ -474,7 +434,7 @@ export class DebugVisualizer {
         const lineMetrics = lineSystem.getLineMetrics(kite, controlRotation, pilotPosition);
 
         const apparentWind = windSimulator.getApparentWind(kiteState.velocity, 0);
-        const aeroMetrics = AerodynamicsCalculator.computeMetrics(apparentWind, kite.quaternion, kite);
+        const aeroMetrics = AerodynamicsCalculator.computeMetrics(apparentWind, kite.quaternion);
 
         return {
             kitePosition: `[${kite.position.x.toFixed(1)}, ${kite.position.y.toFixed(1)}, ${kite.position.z.toFixed(1)}]`,
