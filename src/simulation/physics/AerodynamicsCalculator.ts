@@ -96,8 +96,18 @@ export class AerodynamicsCalculator {
                 return; // Face non contributive
             }
 
-            // ÉTAPE 4 : Force aérodynamique proportionnelle à la surface
-            const forceMagnitude = dynamicPressure * surface.area * cosIncidence;
+            // ÉTAPE 4 : Force aérodynamique avec effet d'extrados
+            let forceMagnitude = dynamicPressure * surface.area * cosIncidence;
+
+            // EFFET D'EXTRADOS : Augmentation de portance sur la face supérieure
+            // L'extrados génère plus de portance due à l'effet Venturi
+            const isExtrados = faceCenterZ < 0; // Face arrière = extrados pour un cerf-volant
+            if (isExtrados && cosIncidence > 0.1) {
+                // Coefficient d'augmentation pour l'extrados (effet Venturi)
+                const extradosFactor = 1.3 + (0.2 * Math.sin(Math.PI * cosIncidence)); // 30-50% d'augmentation
+                forceMagnitude *= extradosFactor;
+            }
+
             const normalDir = facing >= 0 ? normaleMonde.clone() : normaleMonde.clone().negate();
             const force = normalDir.multiplyScalar(forceMagnitude);
 
@@ -235,8 +245,18 @@ export class AerodynamicsCalculator {
             const cd = 0.1 + 0.1 * Math.sin(aoa_rad) * Math.sin(aoa_rad); // Coefficient de traînée simplifié
             const aoa_deg = (Math.asin(facing) - Math.PI / 2) * 180 / Math.PI;
 
-            // Force aérodynamique
-            const forceMagnitude = dynamicPressure * surface.area * cosIncidence;
+            // Force aérodynamique avec effet d'extrados
+            let forceMagnitude = dynamicPressure * surface.area * cosIncidence;
+
+            // EFFET D'EXTRADOS : Augmentation de portance sur la face supérieure
+            // L'extrados génère plus de portance due à l'effet Venturi
+            const isExtrados = faceCenterZ < 0; // Face arrière = extrados pour un cerf-volant
+            if (isExtrados && cosIncidence > 0.1) {
+                // Coefficient d'augmentation pour l'extrados (effet Venturi)
+                const extradosFactor = 1.3 + (0.2 * Math.sin(Math.PI * cosIncidence)); // 30-50% d'augmentation
+                forceMagnitude *= extradosFactor;
+            }
+
             const forceDirection = facing >= 0 ? worldNormal.clone() : worldNormal.clone().negate();
             const force = forceDirection.multiplyScalar(forceMagnitude);
 
