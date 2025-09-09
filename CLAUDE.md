@@ -1,174 +1,165 @@
-ug# CLAUDE.md
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Directives Importantes
+## Important Directives
 
-**TOUJOURS communiquer en français** lorsque vous travaillez sur ce projet. Toutes les réponses, explications et commentaires doivent être en français.
+**ALWAYS communicate in French** when working on this project. All responses, explanations, and comments must be in French.
 
-**NE PAS lancer npm run dev** : L'utilisateur lance le serveur de développement dans un terminal externe. Claude ne doit jamais exécuter cette commande. On dev en Hotreload
+**NEVER run npm run dev**: The user launches the development server in an external terminal. Claude should never execute this command. Development is done with hot reload.
+
+## Project Overview
+
+This is a dual-purpose 3D modeling and kite simulation project called "CAO Paramétrique" (Parametric CAD). It combines:
+
+1. **3D Object Modeling System**: A parametric CAD system using TypeScript and Three.js
+2. **Advanced Kite Physics Simulation**: Sophisticated physics simulation with SimulationV8 integration featuring:
+   - **100% Emergent Physics**: No scripted behaviors, pure geometric constraints
+   - **Position-Based Dynamics (PBD)**: Advanced constraint solving
+   - **Force Visualization**: Real-time debug arrows showing all forces
+   - **Temporal Force Smoothing**: Anti-oscillation system
+   - **Advanced Safety Validation**: Prevents numerical explosions
 
 ## Architecture v3.0 - KISS + Godot Compatible
 
-### Système Principal (Fonctionnel)
+### Core System (Functional)
 
-Le projet implémente un **Pattern StructuredObject + Node3D** compatible Godot :
+The project implements a **StructuredObject + Node3D Pattern** compatible with Godot:
 
-- **Node3D** : Couche d'abstraction compatible Godot (signals, _ready(), _process(), transform)
-- **StructuredObject** : Pattern unifié avec points anatomiques (definePoints → buildStructure → buildSurfaces)
-- **ThreeRenderer** : Renderer Three.js isolé et modulaire
-- **GodotExporter** : Export automatique vers fichiers .tscn Godot
-- **Registry** : Gestionnaire centralisé des objets créables
-- **AutoLoader** : 🔥 Chargement automatique via import.meta.glob
+- **Node3D**: Godot-compatible abstraction layer (signals, _ready(), _process(), transform)
+- **StructuredObject**: Unified pattern with anatomical points (definePoints → buildStructure → buildSurfaces)
+- **ThreeRenderer**: Isolated and modular Three.js renderer
+- **GodotExporter**: Automatic export to Godot .tscn files
+- **Registry**: Centralized manager for creatable objects
+- **AutoLoader**: 🔥 Automatic loading via import.meta.glob
 
-### Flux Architecture
+### Architecture Flow
 
 ```typescript
-// 1. Node3D (Base Godot-compatible)
+// 1. Node3D (Godot-compatible base)
 class Node3D extends THREE.Group {
     transform: Transform3D;
     _ready(), _process(), emit_signal(), connect()
 }
 
-// 2. StructuredObject (Pattern unifié)
+// 2. StructuredObject (Unified pattern)
 class StructuredObject extends Node3D {
     definePoints() → buildStructure() → buildSurfaces()
 }
 
-// 3. Objets concrets
+// 3. Concrete objects
 class Chair extends StructuredObject implements ICreatable {
     create(): this { return this; }
 }
 
-// 4. AutoLoader découvre automatiquement
-// Plus besoin d'enregistrement manuel !
+// 4. AutoLoader automatically discovers
+// No more manual registration needed!
 
-// 5. Rendu
+// 5. Rendering
 renderer.setRootNode(await autoLoader.create('chair'));
 ```
 
-## Conventions de Nommage et Imports
+## Development Commands
 
-### Conventions de Nommage
+### Development
+```bash
+npm install     # Install dependencies
+npm run build   # Build for production
+npm run preview # Preview production build
 
-- **Classes** : PascalCase (`Node3D`, `StructuredObject`, `ThreeRenderer`)
-- **Interfaces** : PascalCase avec préfixe `I` (`ICreatable`) ou sans (`Transform3D`, `Signal`)
-- **Méthodes** :
-  - snake_case pour compatibilité Godot : `_ready()`, `_process()`, `emit_signal()`, `add_child()`
-  - camelCase pour méthodes JS standard : `definePoints()`, `buildStructure()`, `setPoint()`
-- **Propriétés** : camelCase (`nodeId`, `nodeType`, `showDebugPoints`)
-- **Constantes** : UPPER_SNAKE_CASE (`DEFAULT_CONFIG`, `VARIANTS`)
-- **Types** : PascalCase (`Position3D`, `NamedPoint`, `MaterialConfig`)
-- **Fichiers** : PascalCase pour les classes (`Node3D.ts`, `StructuredObject.ts`)
+# TypeScript checking
+npx tsc --noEmit   # Type checking without file emission
+```
 
-### Imports avec Alias
+### Tests and Quality
+No test or linting scripts are currently configured. Use `npx tsc --noEmit` to check TypeScript types.
 
-**TOUJOURS utiliser les alias** définis dans `tsconfig.json` pour les imports :
+## File Structure
+
+```text
+/src/
+├── main.ts                 # Main app with ThreeRenderer and AutoLoader
+├── simulation.ts          # Stable physics simulation version
+├── simulationV2.ts        # Development version for new features
+├── core/                  # System core
+│   ├── Node3D.ts          # Godot abstraction layer 🎮
+│   ├── StructuredObject.ts # Unified object pattern
+│   ├── Primitive.ts       # Geometric generators
+│   ├── Registry.ts        # Singleton registry (legacy)
+│   └── AutoLoader.ts      # 🔥 Automatic loading via import.meta.glob
+├── export/                # Exporters
+│   ├── GodotExporter.ts   # Godot .tscn export 🎮
+│   ├── OBJExporter.ts     # OBJ export for 3D printing
+│   └── index.ts          
+├── factories/             # Factory patterns
+├── objects/               # 📦 All 3D objects (auto-discovered)
+│   ├── furniture/         # Furniture
+│   ├── mechanical/        # Mechanical objects
+│   ├── organic/           # Organic objects (including Kites)
+│   ├── shapes/            # Geometric shapes
+│   └── index.ts           # No longer used - AutoLoader handles everything
+├── renderer/              # Rendering system
+│   ├── ThreeRenderer.ts   # Isolated modular renderer 🎨
+│   └── index.ts          
+├── simulation/            # Kite simulation system
+│   ├── simu_V10/         # Latest modular simulation architecture
+│   ├── core/             # Core simulation abstractions
+│   └── [various versions] # Evolution of simulation physics
+└── types/                 # TypeScript definitions
+    ├── index.ts           # Main types
+    └── vite-env.d.ts      # Vite HMR types
+```
+
+## Naming Conventions and Imports
+
+### Naming Conventions
+- **Classes**: PascalCase (`Node3D`, `StructuredObject`, `ThreeRenderer`)
+- **Interfaces**: PascalCase with `I` prefix (`ICreatable`) or without (`Transform3D`, `Signal`)
+- **Methods**:
+  - snake_case for Godot compatibility: `_ready()`, `_process()`, `emit_signal()`, `add_child()`
+  - camelCase for standard JS methods: `definePoints()`, `buildStructure()`, `setPoint()`
+- **Properties**: camelCase (`nodeId`, `nodeType`, `showDebugPoints`)
+- **Constants**: UPPER_SNAKE_CASE (`DEFAULT_CONFIG`, `VARIANTS`)
+- **Types**: PascalCase (`Position3D`, `NamedPoint`, `MaterialConfig`)
+- **Files**: PascalCase for classes (`Node3D.ts`, `StructuredObject.ts`)
+
+### Import Aliases
+
+**ALWAYS use aliases** defined in `tsconfig.json` for imports:
 
 ```typescript
-// ✅ CORRECT - Utiliser les alias
+// ✅ CORRECT - Use aliases
 import { StructuredObject } from '@core/StructuredObject';
 import { ICreatable } from '@types';
 import { Primitive } from '@core/Primitive';
 import { ThreeRenderer } from '@renderer';
 
-// ❌ INCORRECT - Ne pas utiliser les chemins relatifs
+// ❌ INCORRECT - Don't use relative paths
 import { StructuredObject } from '../core/StructuredObject';
-import { ICreatable } from '../types';
 ```
 
-**Alias disponibles** :
-- `@core/*` : Classes du noyau (Node3D, StructuredObject, Registry, AppState, Logger, etc.)
-- `@types` : Types et interfaces TypeScript
-- `@renderer` : Système de rendu
-- `@export` : Exportateurs (Godot, OBJ, etc.)
-- `@ui/*` : Interface utilisateur (UIManager)
-- `@utils/*` : Utilitaires (RendererUtils, ThreeJSUtils, etc.)
-- `@objects/*` : Objets 3D par catégorie (legacy - remplacés par Factories)
-  - `@objects/furniture/*` : Meubles
-  - `@objects/shapes/*` : Formes géométriques
-  - `@objects/mechanical/*` : Objets mécaniques
-  - `@objects/organic/*` : Objets organiques
-- `@base/*` : Classes de base et patterns
-- `@factories/*` : Factory patterns (architecture principale)
-- `@abstractions/*` : Classes abstraites
-- `@simulation/*` : Système de simulation de cerf-volant
+**Available aliases**:
+- `@core/*`: Core classes (Node3D, StructuredObject, Registry, AppState, Logger, etc.)
+- `@types`: TypeScript types and interfaces
+- `@renderer`: Rendering system
+- `@export`: Exporters (Godot, OBJ, etc.)
+- `@ui/*`: User interface (UIManager)
+- `@utils/*`: Utilities (RendererUtils, ThreeJSUtils, etc.)
+- `@objects/*`: 3D objects by category
+- `@factories/*`: Factory patterns
+- `@simulation/*`: Kite simulation system
 
-### Organisation des Fichiers v3.0
+## Creating New Objects v3.0
 
-```text
-/src/
-├── main.ts                 # App principale avec ThreeRenderer et AutoLoader
-├── simulation.ts          # Version stable de la simulation physique
-├── simulationV2.ts        # Version de développement pour nouvelles fonctionnalités
-├── abstractions/          # Classes abstraites de base (optionnel)
-├── base/                  # Classes de base et patterns (optionnel)
-├── core/                  # Noyau du système
-│   ├── Node3D.ts          # Couche d'abstraction Godot 🎮
-│   ├── StructuredObject.ts # Pattern objet unifié
-│   ├── Primitive.ts       # Générateurs géométriques
-│   ├── Registry.ts        # Registry singleton (legacy)
-│   └── AutoLoader.ts      # 🔥 Chargement automatique via import.meta.glob
-├── export/                # Exportateurs
-│   ├── GodotExporter.ts   # Export .tscn Godot 🎮
-│   ├── OBJExporter.ts     # Export OBJ pour impression 3D
-│   └── index.ts          
-├── factories/             # Factory patterns (optionnel)
-├── objects/               # 📦 Tous les objets 3D (auto-découverts)
-│   ├── furniture/         # Meubles
-│   │   ├── Chair.ts      
-│   │   ├── ModularChair.ts
-│   │   ├── SimpleChair.ts
-│   │   └── Table.ts      
-│   ├── mechanical/        # Objets mécaniques
-│   │   └── Gear.ts       
-│   ├── organic/           # Objets organiques
-│   │   ├── FractalTree.ts
-│   │   ├── Kite.ts        # Cerf-volant simple
-│   │   └── Kite2.ts       # Cerf-volant pour simulation
-│   ├── shapes/            # Formes géométriques
-│   │   ├── Box.ts        
-│   │   ├── Car.ts        
-│   │   ├── Cube.ts       
-│   │   ├── Pyramid.ts    
-│   │   └── TestSphere.ts 
-│   └── index.ts           # Plus utilisé - AutoLoader gère tout
-├── renderer/              # Système de rendu
-│   ├── ThreeRenderer.ts   # Renderer modulaire isolé 🎨
-│   └── index.ts          
-└── types/                 # Définitions TypeScript
-    ├── index.ts           # Types principaux
-    └── vite-env.d.ts      # Types Vite HMR
-```
-
-## Commandes
-
-### Développement
-
-```bash
-npm run dev        # Démarre le serveur Vite sur port 3000/3001 avec HMR
-npm run build      # Compile pour production dans dist/
-npm run preview    # Prévisualise le build de production
-
-# Vérification TypeScript
-npx tsc --noEmit   # Vérification des types TypeScript sans émission de fichiers
-```
-
-### Tests et Qualité
-
-Il n'y a actuellement pas de scripts de test ou de linting configurés. Utiliser `npx tsc --noEmit` pour vérifier les types TypeScript.
-
-## Créer de Nouveaux Objets v3.0
-
-### Structure Standard
+### Standard Structure
 
 ```typescript
-// src/objects/[categorie]/MonObjet.ts (ou src/objects/MonObjet.ts)
+// src/objects/[category]/MyObject.ts (or src/objects/MyObject.ts)
 import { StructuredObject } from '@core/StructuredObject';
 import { ICreatable } from '@types';
 import { Primitive } from '@core/Primitive';
 
-export class MonObjet extends StructuredObject implements ICreatable {
+export class MyObject extends StructuredObject implements ICreatable {
     private params = {
         width: 1,
         height: 2,
@@ -176,436 +167,282 @@ export class MonObjet extends StructuredObject implements ICreatable {
     };
     
     constructor(customParams = {}) {
-        super("Mon Objet");  // Node3D name
+        super("My Object");  // Node3D name
         this.params = { ...this.params, ...customParams };
-        this.init(); // IMPORTANT: Appeler init() pour construire l'objet
+        this.init(); // IMPORTANT: Call init() to build the object
     }
     
-    // 🎮 Points anatomiques (compatible Godot)
+    // 🎮 Anatomical points (Godot compatible)
     protected definePoints(): void {
         this.setPoint('center', [0, 0, 0]);
         this.setPoint('top', [0, this.params.height, 0]);
     }
     
-    // Structure rigide
+    // Rigid structure
     protected buildStructure(): void {
         const box = Primitive.box(this.params.width, this.params.height, 0.1, this.params.color);
         this.addPrimitiveAtPoint(box, 'center');
     }
     
-    // Détails visuels
+    // Visual details
     protected buildSurfaces(): void {
-        // Optionnel : surfaces supplémentaires
+        // Optional: additional surfaces
     }
     
-    // Interface ICreatable
+    // ICreatable interface
     create(): this { return this; }
-    getName(): string { return "Mon Objet"; }
-    getDescription(): string { return "Description de mon objet"; }
+    getName(): string { return "My Object"; }
+    getDescription(): string { return "Description of my object"; }
     getPrimitiveCount(): number { return 1; }
 }
 
-// ✨ PAS BESOIN D'ENREGISTREMENT MANUEL !
-// L'AutoLoader détecte automatiquement le fichier et charge la classe
-// Le nom de classe doit correspondre au nom du fichier (ex: MonObjet.ts → export class MonObjet)
+// ✨ NO MANUAL REGISTRATION NEEDED!
+// AutoLoader automatically detects the file and loads the class
+// Class name must match file name (e.g., MyObject.ts → export class MyObject)
 ```
 
-### Points Clés v3.0
+### Key Points v3.0
 
-1. **Héritage** : StructuredObject → Node3D → THREE.Group
-2. **Pattern** : definePoints() → buildStructure() → buildSurfaces()
-3. **Godot** : Points anatomiques deviennent des Node3D enfants
-4. **Export** : Automatique vers .tscn via GodotExporter
-5. **Debug** : showDebugPoints pour visualiser les points
-6. **Auto-découverte** : Pas besoin d'enregistrement manuel - l'AutoLoader trouve automatiquement les classes
-7. **Convention** : Le nom de classe doit correspondre au nom du fichier (ex: `Chair.ts` → `export class Chair`)
+1. **Inheritance**: StructuredObject → Node3D → THREE.Group
+2. **Pattern**: definePoints() → buildStructure() → buildSurfaces()
+3. **Godot**: Anatomical points become child Node3D nodes
+4. **Export**: Automatic to .tscn via GodotExporter
+5. **Debug**: showDebugPoints to visualize points
+6. **Auto-discovery**: No manual registration needed - AutoLoader finds classes automatically
+7. **Convention**: Class name must match file name (e.g., `Chair.ts` → `export class Chair`)
 
-## Nouvelles Fonctionnalités v3.0
+## Advanced Kite Simulation System
 
-### 🎮 Export Godot
-```typescript
-// Usage direct
-import { GodotExporter } from '@export';
-GodotExporter.downloadTSCN(monObjet, 'fichier.tscn');
+The project features a sophisticated physics simulation system with **SimulationV8 integration**:
 
-// Export programmé
-const tscnContent = GodotExporter.exportToTSCN(monObjet);
-```
+### Main Simulation Files
+- **`/src/simulation/SimulationApp.ts`**: Main simulation application with V8 enhancements
+- **`/src/simulation/simulation.ts`**: Legacy stable physics simulation
+- **`/simulation.html`**: Primary simulation interface
+- **`/test-simulation.html`**: Debug simulation interface
 
-### 🎨 Renderer Modulaire
-```typescript
-// Configuration personnalisée
-const renderer = new ThreeRenderer({
-    canvasContainer: document.getElementById('app')!,
-    backgroundColor: '#1a1a2e',
-    cameraPosition: [3, 2, 3],
-    shadows: true,
-    fog: true
-});
+### SimulationV8 Integration - Production Ready
 
-// Gestion des objets
-renderer.setRootNode(monObjet);
-renderer.focusOn(monObjet);
-renderer.clearScene();
-```
+The current simulation integrates all advanced features from SimulationV8:
 
-### 🔧 Node3D Godot-Like
-```typescript
-// Cycle de vie
-class MonObjet extends StructuredObject {
-    protected _ready(): void {
-        console.log('Objet prêt !');
-    }
-    
-    protected _process(delta: number): void {
-        // Animation, logique frame
-    }
-    
-    // Signaux
-    protected _ready(): void {
-        this.define_signal('clicked');
-        this.emit_signal('clicked', this);
-    }
-}
-```
-
-### 🔥 AutoLoader - Chargement Automatique
-```typescript
-// L'AutoLoader découvre automatiquement tous les objets
-const autoLoader = new AutoLoader();
-
-// Créer une instance
-const objet = await autoLoader.create('chair');
-
-// Obtenir les catégories (basées sur les dossiers réels)
-const categories = await autoLoader.getCategories();
-// => { '🏠 Mobilier': [...], '🔺 Formes': [...], ... }
-
-// Plus besoin d'enregistrement manuel !
-// Il suffit d'ajouter un fichier .ts dans /src/objects/
-```
-
-## Mode Simulation - Cerf-volant
-
-### Fichiers de Simulation
-- **`/src/simulation.ts`** : Version stable de la simulation physique
-- **`/src/simulationV2.ts`** : Version de développement pour nouvelles fonctionnalités
-- **`/src/simulationV3.ts`** : Version modulaire refactorisée avec architecture propre
-- **`/src/simulationV4.ts`** : Version avec améliorations de performance
-- **`/src/simulationV5.ts`** : Version avec physique émergente pure
-- **`/src/simulationV6.ts`** : Version avec améliorations de stabilité
-- **`/src/simulationV7.ts`** : Version avec système de brides physiques
-- **`/src/simulationV8.ts`** : Version avec physique naturelle simplifiée
-- **`/src/simulationV9.ts`** : Version avec analyse de vol et historique
-- **`/src/simulationV10.ts`** : Version modulaire avancée avec architecture KISS (ACTUELLEMENT UTILISÉE)
-- **`/simulation.html`** : Interface HTML de la simulation
-
-### 🎯 Physique Émergente Pure (SimulationV5)
-
-#### Principe Fondamental : Le Cerf-volant comme Convertisseur de Vitesse
-
-Le cerf-volant transforme la vitesse **horizontale** du vent en mouvement **omnidirectionnel** sur une sphère :
-
-```
-Vent horizontal → Pression sur surfaces → Forces 3D → Mouvement sur la sphère
-      →                    ↓                   ↓              ↗ ↑ ↘
-                     (4 triangles)        (émergentes)    (omnidirectionnel)
-```
-
-#### Architecture Physique
-
-La simulation implémente une **physique 100% émergente** sans coefficients artificiels :
-
-1. **Calcul des Forces sur 4 Surfaces Triangulaires**
-   - Chaque surface a sa normale propre (peut pointer dans n'importe quelle direction)
-   - Force = 0.5 × ρ × V² × Area × cos(angle) dans la direction de la normale
-   - Les forces ne sont PAS forcément alignées avec le vent
-   - Whiskers à Z=-0.15 créent un angle dièdre naturel
-
-2. **Contrainte de Distance Stricte (Corde Réelle)**
-   ```typescript
-   // Les lignes sont des cordes : limite dure, pas de ressort
-   if (distance > lineLength) {
-       // Projection sur la sphère
-       newPosition = pilotPosition + direction * lineLength * 0.99
-       
-       // CRUCIAL : Annuler la composante radiale qui éloigne
-       if (radialVelocity > 0) {
-           velocity -= direction * radialVelocity
-       }
-   }
-   ```
-   - La corde ne peut JAMAIS s'étirer
-   - Seul le mouvement tangentiel est permis
-   - Le kite "glisse" sur la sphère invisible
-
-3. **Orientation Naturelle par les Brides**
-   - Points CTRL_GAUCHE et CTRL_DROIT à Z=0.4 (40cm avant)
-   - Créent un moment de redressement naturel
-   - PAS d'inclinaison artificielle forcée
-   - L'orientation émerge de la physique
-
-4. **Conversion d'Énergie**
-   ```
-   Énergie cinétique du vent (horizontale)
-              ↓
-    Pression sur surfaces inclinées
-              ↓
-    Forces dans toutes les directions
-              ↓
-    Mouvement complexe sur la sphère
-              ↓
-    Patterns de vol (boucles, huit, etc.)
-   ```
-
-#### Paramètres Physiques Clés
-- **Masse** : 0.28 kg
-- **Surface totale** : 0.68 m² (4 triangles)
-- **Inertie** : 0.015 kg·m²
-- **Densité de l'air** : 1.225 kg/m³
-- **Garde-fous** : Force max 1000N, Vitesse max 30m/s, Vitesse angulaire max 5rad/s
-
-### Commandes Clavier Simulation
-- **Flèche gauche** : Rotation barre +45° (tire côté gauche)
-- **Flèche droite** : Rotation barre -45° (tire côté droit)
-- **Bouton Debug** : Active l'affichage des vecteurs de force
-
-### Paramètres de Vent
-- **Vitesse** : 0-50 km/h (18 km/h par défaut)
-- **Direction** : 0-360 degrés (0° = vent de face poussant vers -Z)
-- **Turbulence** : 0-100% d'intensité (3% par défaut)
-- **Longueur des lignes** : 10-50 mètres (15m par défaut)
-
-### Points d'Ancrage du Kite
-Les points `CTRL_GAUCHE` et `CTRL_DROIT` dans Kite2.ts (Z=0.4) définissent où les lignes se connectent et créent le moment de redressement naturel.
-
-### 🎯 SimulationV10 - Architecture Modulaire Avancée
-
-#### Vue d'Ensemble
-La SimulationV10 représente l'évolution ultime du simulateur de cerf-volant, combinant les meilleures pratiques de toutes les versions précédentes dans une architecture modulaire KISS (Keep It Simple, Stupid).
-
-#### Architecture Modulaire KISS
+#### V8 Enhanced Architecture
 
 ```text
-/src/simulation/simu_V10/
-├── constants.ts          # Constantes physiques et paramètres
-├── control.ts           # Gestion simple de la barre
-├── control_bar.ts       # Barre de contrôle 3D
-├── debug.ts            # Vecteurs de debug colorés
-├── engine.ts           # Moteur physique principal
-├── environment.ts      # Sol, ciel et ambiance
-├── history.ts          # Historique de vol léger
-├── input.ts            # Gestion des entrées utilisateur
-├── lines.ts            # Système de lignes simple
-├── pilot.ts            # Représentation 3D du pilote
-├── render.ts           # Gestion du rendu Three.js
-├── wind.ts             # Génération du vent réaliste
-├── analysis/           # Analyse de vol avancée
-├── cache/              # Cache de calculs aérodynamiques
-├── config/             # Configuration centralisée
-├── interfaces/         # Types TypeScript
-├── memory/             # Gestion mémoire optimisée
-└── utils/              # Utilitaires partagés
+/src/simulation/
+├── SimulationApp.ts           # Main app with V8 integration
+├── core/
+│   ├── constants.ts          # V8 physics constants and geometry
+│   └── engine.ts            # Core physics engine
+├── physics/
+│   ├── AerodynamicsCalculator.ts  # V8-style force calculations
+│   ├── PhysicsEngine.ts          # Unified physics orchestration
+│   ├── WindSimulator.ts          # Advanced wind with turbulence
+│   ├── lines.ts                  # PBD constraint solver
+│   └── constraints.ts            # Position-Based Dynamics
+├── ui/
+│   ├── CompactUI.ts             # Simulation controls
+│   ├── control.ts              # Input management
+│   └── index.ts                # UI orchestration
+└── utils/
+    ├── debug.ts                # Force visualization system
+    ├── history.ts              # Flight path recording
+    └── pilot.ts                # 3D pilot representation
 ```
 
-#### Principes Fondamentaux V10
+#### Advanced Features Integrated
 
-1. **KISS First** : Architecture simple mais extensible
-2. **Modularité Pure** : Chaque classe dans son fichier
-3. **Performance Optimisée** : Cache intelligent et gestion mémoire
-4. **Debug Complet** : Visualisation avancée des forces
-5. **Physique Naturelle** : Calculs émergents sans artifices
+1. **ControlBarManager V8**: Quaternion-based precise control bar rotation
+2. **PBD Constraint Solver**: Position-Based Dynamics for line constraints
+3. **Temporal Force Smoothing**: Anti-oscillation filter (FORCE_SMOOTHING = 0.15)
+4. **Advanced Safety Validation**: MAX_FORCE, MAX_VELOCITY, MAX_ACCELERATION limits
+5. **Real-time Debug Visualization**: Color-coded force arrows with legend
+6. **Sophisticated Metrics**: V8-style telemetry and warnings system
 
-#### Modules Clés
+#### Core Physics Principles
 
-##### PhysicsEngine (`engine.ts`)
-- **Moteur physique principal** orchestrant la simulation
-- **Calculs émergents** : Forces naturelles sans coefficients artificiels
-- **Intégration optimisée** : Méthode d'Euler avec amortissement adaptatif
-- **Cache intelligent** : Réduction des recalculs répétitifs
+The simulation implements **100% emergent physics** without artificial coefficients:
 
-##### AerodynamicsCalculator (`aerodynamics.ts`)
-- **Calcul par face** : Forces sur chaque triangle du kite
-- **Physique émergente** : Portance et traînée naturelles
-- **Stall factor** : Décrochage réaliste
-- **Cache avancé** : Optimisation des calculs répétitifs
+1. **4 Triangular Surface Force Calculation**
+   - Each surface has its own normal (can point in any direction)
+   - Force = 0.5 × ρ × V² × Area × cos(angle) in normal direction
+   - Forces are NOT necessarily aligned with wind
+   - Whiskers at Z=-0.15 create natural dihedral angle
 
-##### WindSimulator (`wind.ts`)
-- **Vent réaliste** : Turbulences cohérentes
-- **Performance** : Calcul optimisé avec cache
-- **Paramètres ajustables** : Vitesse, direction, turbulence
+2. **Strict Distance Constraint (Real Rope)**
+   - Lines are ropes: hard limit, not springs
+   - Only tangential movement is permitted
+   - Kite "slides" on invisible sphere
 
-##### DebugVectors (`debug.ts`)
-- **Visualisation complète** : Forces, vitesses, vent apparent
-- **Légende interactive** : Explication des couleurs
-- **Performance** : Mise à jour optimisée
+3. **Natural Orientation via Bridles**
+   - CTRL_LEFT and CTRL_RIGHT points at Z=0.4 (40cm forward)
+   - Create natural straightening moment
+   - NO artificial forced inclination
 
-#### Configuration Centralisée
+### Debug Force Visualization
+
+The simulation includes a comprehensive force visualization system:
+
+#### Force Vector Legend (Bottom Right)
+- **🟢 Vert**: Vitesse du kite (velocity)
+- **🟢 Vert clair**: Vent apparent (apparent wind)
+- **🔵 Bleu**: Portance aérodynamique (aerodynamic lift)
+- **🔴 Rouge**: Traînée aérodynamique (drag)
+- **🟠 Orange**: Gravité (gravity)
+- **🩷 Rose**: Tension ligne gauche (left line tension)
+- **🩷 Rose clair**: Tension ligne droite (right line tension)
+- **🟣 Violet**: Couple/rotation (torque/angular velocity)
+
+#### Simulation Controls
+- **Left Arrow/Q/A**: Bar rotation left (pull left side)
+- **Right Arrow/D**: Bar rotation right (pull right side)
+- **Debug Toggle**: Show/hide force vectors and legend
+- **UI Controls**: Wind speed, direction, turbulence, line length
+
+#### Advanced Telemetry
+The simulation provides real-time metrics including:
+- **Window Position**: X°/Y° angles in pilot's reference frame
+- **Stall Detection**: Distance ratio warnings (98% = near stall, 101% = stalled)
+- **Force Asymmetry**: Left/right line tension imbalance percentage
+- **Safety Warnings**: Excessive acceleration, velocity, or angular motion
+
+## Factory System
+
+The project uses a comprehensive factory system for creating 3D objects:
+
+### Available Factories
+- **PointFactory**: Management of anatomical points
+- **CircularPatternFactory**: Circular patterns (gears, spokes)
+- **FrameFactory**: Wire structures (tubes, bars)
+- **SurfaceFactory**: Stretched surfaces (canvases, membranes)
+- **PyramidFactory**: Geometric pyramids
+- **Various furniture factories**: Chairs, tables
+- **Mechanical factories**: Gears
+- **Shape factories**: Boxes, cubes, spheres
+- **KiteFactory**: Parametric kites
+
+### Factory Usage Pattern
 
 ```typescript
-// Paramètres physiques équilibrés
-export const defaultParams: SimParams = {
-  windSpeed: 12,        // Vent plus fort pour vol naturel
-  windDirectionDeg: 0,
-  paused: false,
-};
+import { ChairFactory } from '@factories/ChairFactory';
 
-// Amortissement naturel (comme V8)
-linearDamping: 0.92,    // Résistance air réaliste
-angularDamping: 0.85,   // Rotation naturelle
+const chairFactory = new ChairFactory();
+const chair = chairFactory.createObject({
+    seatHeight: 0.45,
+    seatColor: '#8B4513',
+    legColor: '#654321'
+});
 ```
 
-#### Améliorations par Rapport aux Versions Précédentes
+## Advanced Physics Architecture
 
-##### Par Rapport à V8
-- ✅ **Architecture modulaire** : Code organisé et maintenable
-- ✅ **Cache intelligent** : Performance améliorée
-- ✅ **Debug avancé** : Visualisation complète des forces
-- ✅ **Gestion mémoire** : Object pools et optimisation
-- ✅ **Configuration centralisée** : Paramètres faciles à ajuster
+### Core Principles
 
-##### Par Rapport à V9
-- ✅ **Simplification** : Suppression des contraintes PBD complexes
-- ✅ **Performance** : Cache et optimisation mémoire
-- ✅ **Stabilité** : Amortissement naturel comme V8
-- ✅ **Maintenabilité** : Architecture KISS claire
+1. **Pure Emergent Physics**: All kite behavior emerges from geometric constraints and physical forces
+2. **SimulationV8 Integration**: Production-ready physics with advanced features
+3. **Position-Based Dynamics**: Sophisticated constraint solving for realistic line behavior
+4. **Temporal Smoothing**: Anti-oscillation systems for stable simulation
+5. **Real-time Validation**: Safety systems preventing numerical explosions
 
-#### Points Forts de V10
-
-1. **Performance Exceptionnelle**
-   - Cache multi-niveaux pour les calculs aérodynamiques
-   - Object pools pour la gestion mémoire
-   - Mise à jour optimisée des vecteurs de debug
-
-2. **Architecture KISS**
-   - Un fichier par classe pour une séparation claire
-   - Interfaces TypeScript pour la communication
-   - Configuration centralisée et modifiable
-
-3. **Debug et Analyse**
-   - Vecteurs colorés pour toutes les forces
-   - Métriques temps réel complètes
-   - Historique de vol avec analyse
-
-4. **Physique Naturelle**
-   - Calculs émergents sans coefficients artificiels
-   - Amortissement réaliste comme V8
-   - Réponse naturelle aux commandes
-
-#### Utilisation Recommandée
+### Physics Chain
 
 ```typescript
-// Lancement simple
-import { SimulationAppV10 } from '@simulation/simulationV10';
-const sim = new SimulationAppV10();
+// 1. Input → Control Bar Rotation (geometric)
+controlRotation → handlePositions (world space)
 
-// Configuration personnalisée
-const customParams = {
-  windSpeed: 15,        // km/h
-  windDirectionDeg: 45, // degrés
-  debugMode: true
-};
+// 2. Distance Calculations → Forces (emergent)
+distances → lineTensions → asymmetricForces
+
+// 3. Aerodynamics → Wind Forces (physics-based)
+apparentWind → liftDrag → aerodynamicTorque
+
+// 4. Force Integration → Motion (Newton's laws)
+smoothedForces → acceleration → velocity → position
+
+// 5. Constraint Solving → Position Correction (PBD)
+lineConstraints → positionCorrection → orientationCorrection
 ```
 
-#### Perspectives d'Évolution
+### Key Components Integration
 
-- **IA de pilotage** : Contrôle automatique du kite
-- **Multi-kite** : Simulation de plusieurs cerfs-volants
-- **Export données** : Analyse détaillée des vols
-- **Réalité virtuelle** : Support WebXR
-- **Performance** : Optimisation pour mobile
+- **ControlBarManager**: Centralized quaternion-based control calculations
+- **LineSystem**: PBD solver with geometric constraint enforcement  
+- **AerodynamicsCalculator**: V8-style force computation per triangle surface
+- **WindSimulator**: Advanced wind with realistic turbulence
+- **Debug Visualizer**: Real-time force vector display with color legend
 
-**🎯 V10 représente l'aboutissement de l'évolution du simulateur : simplicité, performance et physique naturelle dans une architecture modulaire maintenable.**
+## Development Workflow
 
-### Architecture SimulationV3
-La version V3 introduit une architecture modulaire avec séparation des responsabilités :
+### CAD Development
+1. User launches `npm run dev` in external terminal
+2. Edit objects in `/src/objects/[category]/`
+3. HMR automatically recompiles
+4. Test with Explode to see anatomical points
+5. Export to Godot with dedicated button
 
-#### Modules Principaux
-- **PhysicsEngine** : Moteur physique principal orchestrant la simulation
-- **WindSimulator** : Simulation du vent avec turbulences cohérentes
-- **Aerodynamics** : Calcul des forces aérodynamiques (portance et traînée)
-- **LineSystem** : Gestion des lignes, tensions et pivots souples
-- **KiteController** : Contrôle du cerf-volant et gestion de son état
-- **InputHandler** : Gestion des entrées clavier
-- **RenderManager** : Gestion du rendu Three.js isolée
-- **SimulationAppV3** : Application principale orchestrant tous les modules
+### Simulation Development
+1. Main simulation: `simulation.html` 
+2. Debug mode: `test-simulation.html`
+3. Force vectors visible when debug enabled
+4. Real-time telemetry in console with V8 metrics
+5. Interactive controls for wind, line length, etc.
 
-#### Configuration Centralisée
-Tous les paramètres de simulation sont centralisés dans l'objet `CONFIG` :
-- **physics** : Gravité, densité de l'air, amortissements
-- **kite** : Masse, surface, coefficients aérodynamiques
-- **lines** : Longueur, tension, facteurs de contrôle
-- **wind** : Vitesse, direction, turbulence
-- **rendering** : Options de rendu Three.js
+## Migration Paths
 
-#### Patterns et Principes
-- **Séparation des responsabilités** : Chaque module a une responsabilité unique
-- **Interfaces typées** : `WindParams`, `KiteState`, `LineState` pour la communication
-- **Configuration centralisée** : Un seul objet `CONFIG` pour tous les paramètres
-- **Classes autonomes** : Chaque classe peut être testée indépendamment
-- **Méthodes privées** : Encapsulation forte avec méthodes privées pour la logique interne
+### Godot Migration (CAD System)
+1. **Node3D API**: Direct mapping to Godot spatial nodes
+2. **Transform3D**: Compatible coordinate system  
+3. **Signal system**: Godot-like event handling
+4. **Export .tscn**: Automatic scene export
+5. **Anatomical points**: Map to child Node3D nodes
 
-## Patterns de Code SimulationV3
+### Physics Engine Migration
+The physics system is designed for potential migration to:
+- **Godot Physics**: Node3D structure ready for Godot RigidBody3D
+- **External Physics**: Modular design allows engine swapping
+- **Web Deployment**: Full Three.js browser compatibility
 
-### Organisation des Classes
-```typescript
-class Module {
-    private propriétés;      // État interne privé
-    constructor() { }        // Initialisation
-    public methods() { }     // API publique
-    private helpers() { }    // Méthodes privées
-}
-```
+## Technical Constraints
 
-### Flux de Données
-1. **InputHandler** capture les entrées → targetBarRotation
-2. **PhysicsEngine.update()** orchestre chaque frame :
-   - Calcule le vent apparent via **WindSimulator**
-   - Calcule les forces aérodynamiques via **Aerodynamics**
-   - Calcule les tensions via **LineSystem**
-   - Met à jour le cerf-volant via **KiteController**
-3. **RenderManager** affiche le résultat
+### Assembly Limits v3.0
+- **Named anatomical points** for clear structure
+- **No CSG operations** - pure composition
+- **Godot compatible** - direct mapping to Node3D
+- **Maximum 10-15 primitives** per object for maintainability
 
-### Points d'Extension
-- Ajouter de nouveaux types de cerfs-volants : créer une nouvelle classe héritant de `StructuredObject`
-- Modifier la physique : ajuster les paramètres dans `CONFIG`
-- Ajouter des visualisations : étendre `RenderManager`
-- Nouvelles entrées : étendre `InputHandler`
+### Design Philosophy
+- **Simple by default**: Primitives like LEGO blocks
+- **Powerful when needed**: CSG operations for complex needs
+- **Always compatible**: Easy transition to Godot
+- **Developer-first**: Maximum productivity with hot reload
 
-## Contraintes de Design
+## Performance Considerations
 
-### Limites d'Assemblage v3.0
-- **Points anatomiques nommés** pour structure claire
-- **Pas d'opérations CSG** - composition pure
-- **Compatible Godot** - mapping direct vers Node3D
-- **Maximum 10-15 primitives** par objet pour la maintenabilité
+### CAD System Optimization
+1. **Object pooling**: For frequently created/destroyed objects
+2. **LOD systems**: Level of detail for complex objects
+3. **Instancing**: For repeated geometries
+4. **Memory management**: Proper disposal with EventBus cleanup
 
-### Workflow Godot
+### Physics Simulation Optimization
+1. **Temporal Force Smoothing**: Reduces oscillations and improves stability
+2. **PBD Dual-Pass Constraints**: Two iterations for better constraint satisfaction
+3. **Safety Validation**: Prevents numerical explosions with limits checking
+4. **Efficient Debug Rendering**: Arrow cleanup and conditional visualization
+5. **Metrics Throttling**: Console logs limited to prevent spam
 
-1. **Développer** : Créer l'objet dans le navigateur
-2. **Tester** : Debug points, rotation, etc.
-3. **Exporter** : Bouton "🎮 Export Godot"
-4. **Importer** : Ouvrir .tscn dans Godot Engine
-5. **Finaliser** : Ajouter physique, scripts Godot
+## Simulation Testing and Validation
 
-## Notes Techniques v3.0
+### Physics Validation Tests
+- **Test Emergent Behavior**: Use arrow keys to test asymmetric forces
+- **Stall Detection**: Monitor distance ratios and warnings
+- **Force Visualization**: Enable debug mode to see all force vectors
+- **Wind Response**: Test different wind speeds and directions
+- **Line Tension**: Verify geometric constraints with visual feedback
 
-1. **Hot Reload** : Vite HMR configuré dans vite-env.d.ts
-2. **TypeScript** : Mode strict, cible ES2020, module ESNext
-3. **Compatibilité** : Node3D API proche de Godot
-4. **Modularité** : Renderer/Export séparés pour isolation
-5. **KISS** : Architecture simple mais extensible
-6. **Auto-découverte** : L'AutoLoader charge automatiquement tous les objets depuis `/src/objects/` via `import.meta.glob`
-7. **Coordonnées Three.js** : Système de coordonnées Y-up
-8. **Couleurs** : Accepte les chaînes hexadécimales ('#FF0000') ou les paramètres du constructeur Three.js Color
+### Key Metrics to Monitor
+- **Frame Performance**: Should maintain 60fps with debug enabled
+- **Force Magnitudes**: Check for excessive values triggering warnings
+- **Distance Ratios**: Monitor line constraint satisfaction (should stay ≤101%)
+- **Control Response**: Verify emergent rotation from bar input
 
-## Flux de Développement v3.0
-
-1. L'utilisateur lance npm run dev dans un terminal externe
-2. Éditer les objets dans `/src/objects/[categorie]/`
-3. HMR recompile automatiquement
-4. Tester avec Explode pour voir les points anatomiques
-5. Exporter vers Godot avec le bouton dédié
-6. Importer le .tscn dans Godot pour finalisation
-
-**🎯 Objectif v3.0** : Architecture KISS qui facilite la transition web → Godot tout en gardant la productivité maximale avec auto-découverte des objets !
+This architecture provides a **sophisticated, production-ready system** combining advanced 3D CAD capabilities with realistic physics simulation, featuring complete SimulationV8 integration and comprehensive debugging tools.

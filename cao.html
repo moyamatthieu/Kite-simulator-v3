@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAO Paramétrique - Modélisation 3D</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+            background: #1a1a2e;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        
+        #app {
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Sélecteur de mode en haut à gauche */
+        .mode-selector {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .mode-selector label {
+            color: #aaa;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .mode-btn {
+            padding: 8px 16px;
+            background: #444;
+            border: 2px solid transparent;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .mode-btn:hover {
+            background: #555;
+        }
+        
+        .mode-btn.active {
+            background: #667eea;
+            border-color: #764ba2;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+        
+        #object-info {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        #object-info h3 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .object-selector {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            width: 200px;
+        }
+        
+        /* Cache les éléments en mode simulation */
+        body.simulation-mode .object-selector,
+        body.simulation-mode #explode-btn,
+        body.simulation-mode #labels-btn,
+        body.simulation-mode #export-godot-btn,
+        body.simulation-mode #export-obj-btn {
+            display: none;
+        }
+        
+        body.simulation-mode #object-info h3::before {
+            content: "🎮 ";
+        }
+        
+        body.cao-mode #object-info h3::before {
+            content: "⚙️ ";
+        }
+        
+        .object-selector button {
+            padding: 8px 12px;
+            background: #667eea;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+            text-align: left;
+            width: 100%;
+        }
+        
+        .controls button {
+            padding: 10px 20px;
+            background: #667eea;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+        
+        button.active {
+            background: #764ba2;
+            box-shadow: 0 0 10px rgba(118, 75, 162, 0.5);
+        }
+        
+        .category-label {
+            width: 100%;
+            text-align: left;
+            color: #aaa;
+            font-size: 11px;
+            margin: 10px 0 5px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            border-bottom: 1px solid #444;
+            padding-bottom: 3px;
+        }
+        
+        /* Scrollbar personnalisée */
+        .object-selector::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .object-selector::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        
+        .object-selector::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
+        }
+        
+        .object-selector::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+    </style>
+</head>
+<body class="cao-mode">
+    <div id="app"></div>
+    
+    <!-- Sélecteur de mode -->
+    <div class="mode-selector">
+        <label>MODE:</label>
+        <button id="mode-cao" class="mode-btn active">CAO</button>
+        <button id="mode-simulation" class="mode-btn">Simulation</button>
+    </div>
+    
+    <div id="object-info">
+        <h3>CAO Paramétrique</h3>
+        <div>Objet: <span id="object-name">-</span></div>
+        <div>Primitives: <span id="primitive-count">0</span></div>
+        <div>FPS: <span id="fps">60</span></div>
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #555;">
+            <strong>Échelle:</strong><br>
+            1 unité = 10mm<br>
+            1 case = 5mm<br>
+            Grille = 100mm
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button id="reset-btn">🔄 Reset</button>
+        <button id="explode-btn">💥 Explode</button>
+        <button id="labels-btn">🏷️ Labels</button>
+        <button id="animate-btn">▶️ Animate</button>
+        <button id="export-godot-btn">🎮 Export Godot</button>
+        <button id="export-obj-btn">📦 Export OBJ</button>
+    </div>
+    
+    <div class="object-selector">
+        <!-- Boutons générés automatiquement par AutoLoader -->
+    </div>
+    
+    <script type="module" src="/src/main.ts"></script>
+    <script>
+        // Fade in au chargement
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+            }, 100);
+        });
+    </script>
+</body>
+</html>

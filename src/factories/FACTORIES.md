@@ -545,6 +545,39 @@ Le `KiteFactory` accepte les paramètres suivants (voir `DEFAULT_KITE_CONFIG` da
 
 ---
 
+### Orchestration côté `Kite.ts` (points de contrôle)
+
+L’objet `Kite` (AutoLoader) orchestre la construction via des outils utilitaires et expose des paramètres supplémentaires pour positionner les points de contrôle (ancrage des lignes de pilotage) — par défaut alignés sur la simulation (simulationV8):
+
+- `ctrlX`: abscisse des points `CTRL_GAUCHE`/`CTRL_DROIT` (par défaut `0.15` → positions à `±ctrlX`)
+- `ctrlY`: ordonnée des points de contrôle (par défaut `0.3`)
+- `ctrlZ`: profondeur des points de contrôle (par défaut `0.4`)
+
+Exemple d’utilisation:
+
+```ts
+import { createKite } from '@/objects/Kite';
+
+// Cerf-volant avec points de contrôle personnalisés
+const kite = createKite({ ctrlX: 0.18, ctrlY: 0.32, ctrlZ: 0.45 });
+```
+
+Notes:
+- Les valeurs par défaut de `ctrlX/Y/Z` sont également utilisées comme fallbacks dans `KiteFactoryTools.computePoints`.
+- `KiteFactory` reste la source unique pour la géométrie; `Kite.ts` coordonne l’assemblage proprement.
+
+### Outils utilitaires (KiteFactoryTools)
+
+Pour éviter les duplications et faciliter la composition, des helpers dédiés sont fournis:
+
+- `computePoints({ width, height, depth, ctrlX?, ctrlY?, ctrlZ? })` → Map des points
+- `createMainFrame(points, { diameter, material })` → frame principal
+- `createWhiskerFrame(points, { diameter, material? })` → whiskers
+- `createSail(points, material)` → toile (4 panneaux)
+- `createBridleLines(points)` → brides visuelles
+
+Ces outils sont utilisés par `KiteFactory` et `Kite.ts` pour garantir un chemin de construction DRY et cohérent.
+
 ## 🚗 CarFactory
 
 Crée des voitures paramétriques avec des dimensions et une couleur configurables.

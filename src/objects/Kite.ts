@@ -1,184 +1,130 @@
 /**
- * Kite.ts - Cerf-volant utilisant KiteFactory pour l'AutoLoader
- * Pont entre le système AutoLoader et le système Factory
+ * Kite.ts - Cerf-volant delta utilisant nos factories (Frame/Surface)
+ * Orchestrateur: définit les points (alignés sur simulationV8), frame, toile, brides
  */
 
 import { StructuredObject } from '@core/StructuredObject';
-import { ICreatable } from '@/types';
-import { KiteFactory, KiteParams, DEFAULT_KITE_CONFIG } from '@factories/KiteFactory';
+import { ICreatable } from '@types';
+import { Primitive } from '@core/Primitive';
+import { KiteFactoryTools } from '@factories/KiteFactory';
 import * as THREE from 'three';
 
-/**
- * Classe Kite compatible AutoLoader qui utilise KiteFactory
- */
+// Déclare un type pour éviter d'accéder à `this` dans la signature du constructeur
+type KiteParams = {
+  width: number;
+  height: number;
+  depth: number;
+  frameDiameter: number;
+  frameColor: string;
+  sailColor: string;
+  sailOpacity: number;
+  ctrlX: number;
+  ctrlY: number;
+  ctrlZ: number;
+};
+
 export class Kite extends StructuredObject implements ICreatable {
-  private factory: KiteFactory;
-  private params: Partial<KiteParams>;
+  private pointsMap: Map<string, [number, number, number]> = new Map();
+  private bridleLines: THREE.Group | null = null;
+  private bridleLengthFactor = 1.0;
 
-  constructor(params: Partial<KiteParams> = {}) {
-    super('Kite'); // Nom pour StructuredObject
+  // Paramètres (visuels/échelle) et points de contrôle cibles (simulationV8)
+  private params: KiteParams = {
+    width: 1.65,
+    height: 0.65,
+    depth: 0.15,
+    frameDiameter: 0.01,
+    frameColor: '#2a2a2a',
+    sailColor: '#ff3333',
+    sailOpacity: 0.9,
+    ctrlX: 0.30,
+    ctrlY: 0.3,
+    ctrlZ: 0.4
+  };
 
-    // Paramètres par défaut avec une taille visible
-    this.params = {
-      width: 3.0,      // Envergure plus visible
-      height: 1.5,     // Hauteur plus visible
-      depth: 0.3,      // Profondeur des whiskers
-      frameDiameter: 0.02,
-      frameColor: '#2a2a2a',
-      sailColor: '#ff3333',
-      sailOpacity: 0.9,
-      bridleLengthFactor: 1.0,
-      ...params
-    };
-
-    this.factory = new KiteFactory();
-
-    // Créer l'objet via la factory et copier ses propriétés
-    const kiteObject = this.factory.createObject(this.params);
-
-    // Copier le contenu de l'objet factory dans cette instance
-    this.copy(kiteObject as any);
-    this.initialize();
+  constructor(customParams: Partial<KiteParams> = {}) {
+    super('Kite');
+    this.params = { ...this.params, ...customParams };
+    this.init();
   }
 
-  // Interface ICreatable
-  create(): this {
-    return this;
-  }
-
-  getName(): string {
-    return 'Kite';
-  }
-
-  getDescription(): string {
-    return `Cerf-volant paramétrique (${this.params.width}x${this.params.height}) créé via KiteFactory`;
-  }
-
-  getPrimitiveCount(): number {
-    return 20; // Estimation pour un cerf-volant avec structure
-  }
-
-  // Méthodes StructuredObject qui implémentent directement la géométrie
   protected definePoints(): void {
-    const w = this.params.width!;
-    const h = this.params.height!;
-    const d = this.params.depth!;
+    const { width, height, depth, ctrlX, ctrlY, ctrlZ } = this.params;
 
-    // Points principaux du cerf-volant delta
-    this.setPoint('NEZ', [0, h * 0.2, 0]);           // Pointe avant
-    this.setPoint('AILE_GAUCHE', [-w / 2, -h * 0.3, 0]); // Extrémité gauche
-    this.setPoint('AILE_DROITE', [w / 2, -h * 0.3, 0]);  // Extrémité droite
-    this.setPoint('QUEUE', [0, -h * 0.8, 0]);          // Pointe arrière
-    this.setPoint('CENTRE', [0, 0, 0]);                // Centre
+    this.pointsMap = KiteFactoryTools.computePoints({ width, height, depth, ctrlX, ctrlY, ctrlZ });
 
-    // Points de contrôle (plus bas pour les lignes)
-    this.setPoint('CTRL_GAUCHE', [-w * 0.2, -h * 1.2, 0]);
-    this.setPoint('CTRL_DROIT', [w * 0.2, -h * 1.2, 0]);
+    this.pointsMap.forEach((pos, name) => this.setPoint(name, pos));
   }
 
   protected buildStructure(): void {
-    // Structure du cerf-volant avec des lignes
-    const frameMaterial = new THREE.LineBasicMaterial({
-      color: this.params.frameColor,
-      linewidth: 2
-    });
+    const { frameDiameter, frameColor } = this.params;
 
-    // Contour du cerf-volant - créer manuellement les lignes
-    this.createLineBetweenPoints('NEZ', 'AILE_GAUCHE', frameMaterial);
-    this.createLineBetweenPoints('AILE_GAUCHE', 'QUEUE', frameMaterial);
-    this.createLineBetweenPoints('QUEUE', 'AILE_DROITE', frameMaterial);
-    this.createLineBetweenPoints('AILE_DROITE', 'NEZ', frameMaterial);
+    const mainFrame = KiteFactoryTools.createMainFrame(this.pointsMap, { diameter: frameDiameter, material: frameColor });
+    this.add(mainFrame);
 
-    // Lignes de contrôle (brides)
-    const bridleMaterial = new THREE.LineBasicMaterial({
-      color: '#333333',
-      linewidth: 1
-    });
+    const whiskerFrame = KiteFactoryTools.createWhiskerFrame(this.pointsMap, { diameter: frameDiameter / 2, material: '#444444' });
+    this.add(whiskerFrame);
 
-    this.createLineBetweenPoints('NEZ', 'CTRL_GAUCHE', bridleMaterial);
-    this.createLineBetweenPoints('NEZ', 'CTRL_DROIT', bridleMaterial);
-    this.createLineBetweenPoints('CENTRE', 'CTRL_GAUCHE', bridleMaterial);
-    this.createLineBetweenPoints('CENTRE', 'CTRL_DROIT', bridleMaterial);
-  }
-
-  /**
-   * Méthode helper pour créer une ligne entre deux points
-   */
-  private createLineBetweenPoints(point1Name: string, point2Name: string, material: THREE.LineBasicMaterial): void {
-    const p1 = this.getPoint(point1Name);
-    const p2 = this.getPoint(point2Name);
-
-    if (p1 && p2) {
-      const geometry = new THREE.BufferGeometry();
-      const points = [p1, p2];
-      geometry.setFromPoints(points);
-
-      const line = new THREE.Line(geometry, material);
-      line.name = `Line_${point1Name}_${point2Name}`;
-      this.add(line);
-    }
+    this.createBridleLines();
   }
 
   protected buildSurfaces(): void {
-    // Créer la surface triangulaire du cerf-volant
-    const points = [
-      this.getPoint('NEZ')!,
-      this.getPoint('AILE_GAUCHE')!,
-      this.getPoint('QUEUE')!,
-      this.getPoint('AILE_DROITE')!
-    ];
+    const { sailColor, sailOpacity } = this.params;
+    const sail = KiteFactoryTools.createSail(this.pointsMap, { color: sailColor, transparent: true, opacity: sailOpacity, doubleSided: true });
+    this.add(sail);
+    this.addVisualMarkers();
+  }
 
-    // Géométrie personnalisée pour le cerf-volant
-    const geometry = new THREE.BufferGeometry();
-    const vertices = [];
+  private createBridleLines(): void {
+    if (this.bridleLines) this.remove(this.bridleLines);
+    this.bridleLines = KiteFactoryTools.createBridleLines(this.pointsMap);
+    this.add(this.bridleLines);
+  }
 
-    // Triangle gauche : NEZ -> AILE_GAUCHE -> QUEUE
-    vertices.push(
-      points[0].x, points[0].y, points[0].z, // NEZ
-      points[1].x, points[1].y, points[1].z, // AILE_GAUCHE
-      points[2].x, points[2].y, points[2].z  // QUEUE
-    );
-
-    // Triangle droit : NEZ -> QUEUE -> AILE_DROITE
-    vertices.push(
-      points[0].x, points[0].y, points[0].z, // NEZ
-      points[2].x, points[2].y, points[2].z, // QUEUE
-      points[3].x, points[3].y, points[3].z  // AILE_DROITE
-    );
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.computeVertexNormals();
-
-    const material = new THREE.MeshLambertMaterial({
-      color: this.params.sailColor,
-      transparent: true,
-      opacity: this.params.sailOpacity,
-      side: THREE.DoubleSide
+  public updateBridleLines(): void {
+    if (!this.bridleLines) return;
+    this.bridleLines.children.forEach((line) => {
+      if (!(line instanceof THREE.Line)) return;
+      const a = (line as any).userData.startPoint;
+      const b = (line as any).userData.endPoint;
+      const pa = this.pointsMap.get(a);
+      const pb = this.pointsMap.get(b);
+      if (!pa || !pb) return;
+      const geom = line.geometry as THREE.BufferGeometry;
+      geom.setFromPoints([new THREE.Vector3(...pa), new THREE.Vector3(...pb)]);
+      (geom.attributes as any).position.needsUpdate = true;
     });
-
-    const kiteSurface = new THREE.Mesh(geometry, material);
-    kiteSurface.name = 'KiteSurface';
-    kiteSurface.castShadow = true;
-
-    this.add(kiteSurface);
   }
 
-  /**
-   * Mise à jour des paramètres du cerf-volant
-   */
-  updateParameters(params: Partial<KiteParams>): void {
-    this.params = { ...this.params, ...params };
-
-    // Recréer l'objet via la factory avec les nouveaux paramètres
-    const newKiteObject = this.factory.createObject(this.params);
-    this.copy(newKiteObject as any);
+  public adjustBridleLength(factor: number): void {
+    this.bridleLengthFactor = Math.max(0.5, Math.min(1.5, factor));
   }
+  public getBridleRestLength(bridleName: 'left' | 'right'): number | undefined {
+    const nez = this.getPoint('NEZ');
+    const ctrl = this.getPoint(bridleName === 'left' ? 'CTRL_GAUCHE' : 'CTRL_DROIT');
+    if (!nez || !ctrl) return undefined;
+    return nez.distanceTo(ctrl) * this.bridleLengthFactor;
+  }
+  public getBridleLengthFactor(): number { return this.bridleLengthFactor; }
+
+  private addVisualMarkers(): void {
+    const nez = this.getPoint('NEZ');
+    if (nez) this.addPrimitiveAt(Primitive.sphere(0.025, '#ff0000'), [nez.x, nez.y, nez.z]);
+    const cg = this.getPoint('CTRL_GAUCHE');
+    if (cg) this.addPrimitiveAt(Primitive.sphere(0.025, '#dc143c'), [cg.x, cg.y, cg.z]);
+    const cd = this.getPoint('CTRL_DROIT');
+    if (cd) this.addPrimitiveAt(Primitive.sphere(0.025, '#b22222'), [cd.x, cd.y, cd.z]);
+  }
+
+  // ICreatable
+  create(): this { return this; }
+  getName(): string { return 'Cerf-volant Delta v2'; }
+  getDescription(): string { return 'Cerf-volant delta construit avec Frame/Surface factories'; }
+  getPrimitiveCount(): number { return 25; }
 }
 
-// Export par défaut pour AutoLoader
 export default Kite;
 
-// Fonction utilitaire pour créer un cerf-volant rapidement
-export function createKite(params: Partial<KiteParams> = {}): Kite {
-  return new Kite(params);
+export function createKite(params: Partial<typeof Kite.prototype['params']> = {}): Kite {
+  return new Kite(params as any);
 }

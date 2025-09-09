@@ -44,7 +44,8 @@ export default defineConfig({
     // Configuration multi-pages
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html')
+        main: resolve(__dirname, 'index.html'),  // Simulation par défaut
+        cao: resolve(__dirname, 'cao.html')      // CAO accessible via /cao.html
       }
     }
   }

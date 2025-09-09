@@ -10,6 +10,7 @@ import { StructuredObject } from '@core/StructuredObject';
 import { logger } from '@core/Logger';
 import { GodotExporter } from '@export/GodotExporter';
 import { OBJExporter } from '@export/OBJExporter';
+import { setupNavigation } from './navigation';
 
 // === Application principale KISS avec Hot Reload automatique ===
 
