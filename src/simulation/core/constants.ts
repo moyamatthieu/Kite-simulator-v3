@@ -22,11 +22,11 @@ export class PhysicsConstants {
     static readonly CATENARY_SEGMENTS = 5;             // Nombre de points pour dessiner la courbe des lignes
 
     // Limites de sécurité - pour que la simulation ne devienne pas folle
-    static readonly MAX_FORCE = 2500;                  // Force max augmentée pour montée au zénith
-    static readonly MAX_VELOCITY = 40;                 // Vitesse max augmentée : 40 m/s = 144 km/h
-    static readonly MAX_ANGULAR_VELOCITY = 25;          // Rotation max : presque 1 tour par seconde
-    static readonly MAX_ACCELERATION = 150;             // Accélération max augmentée pour montée verticale
-    static readonly MAX_ANGULAR_ACCELERATION = 20;     // La rotation ne peut pas s'emballer
+    static readonly MAX_FORCE = 3500;                  // Force max augmentée pour vol transversal
+    static readonly MAX_VELOCITY = 50;                 // Vitesse max augmentée : 50 m/s = 180 km/h
+    static readonly MAX_ANGULAR_VELOCITY = 30;          // Rotation max : plus de réactivité
+    static readonly MAX_ACCELERATION = 200;             // Accélération max augmentée pour vol transversal
+    static readonly MAX_ANGULAR_ACCELERATION = 25;     // La rotation ne peut pas s'emballer
 }
 
 // ==============================================================================
