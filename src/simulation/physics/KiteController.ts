@@ -1,5 +1,5 @@
 /**
- * KiteControllerV8.ts - Contrôleur avancé du cerf-volant avec validation
+ * KiteController.ts - Contrôleur avancé du cerf-volant avec validation
  * Intégration complète du KiteController de SimulationV8
  *
  * AMÉLIORATIONS V8 :
@@ -22,7 +22,7 @@ export interface KiteWarnings {
     velocityValue: number;
 }
 
-export class KiteControllerV8 {
+export class KiteController {
     private kite: Kite;
     private state: KiteState;
     private previousPosition: THREE.Vector3;

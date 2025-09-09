@@ -74,7 +74,7 @@ interface DebugMetrics {
 /**
  * Classe principale pour le système de debug visuel avancé V8
  */
-export class DebugVisualizerV8 {
+export class DebugVisualizer {
   private scene: THREE.Scene;
   private group = new THREE.Group();
   private isEnabled: boolean = false;
@@ -113,7 +113,7 @@ export class DebugVisualizerV8 {
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
-    this.group.name = 'DebugVisualizerV8';
+    this.group.name = 'DebugVisualizer';
     this.group.visible = false;
 
     this.initializeVectors();
@@ -620,13 +620,13 @@ interface SurfaceDebug {
  * @description Wrapper pour maintenir la compatibilité avec l'ancien système de debug
  */
 export class DebugVectors {
-  private visualizer: DebugVisualizerV8;
+  private visualizer: DebugVisualizer;
   private surfaceDebug: SurfaceDebug[] = [];
 
   constructor() {
     // Créer une scène temporaire pour l'initialisation
     const tempScene = new THREE.Scene();
-    this.visualizer = new DebugVisualizerV8(tempScene);
+    this.visualizer = new DebugVisualizer(tempScene);
 
     // Créer des surfaces de debug vides pour la compatibilité
     for (let i = 0; i < 4; i++) {

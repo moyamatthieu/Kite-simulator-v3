@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Kite } from '@objects/Kite';
 import { PhysicsEngine } from './physics/PhysicsEngine';
-import { DebugVisualizerV8 } from './utils/debug';
+import { DebugVisualizer } from './physics/DebugVisualizer';
 import { CONFIG, PhysicsConstants, WindParams, KiteState, HandlePositions } from './core/constants';
 import { CompactUI } from './ui/CompactUI';
 import { WindSimulator } from './physics/WindSimulator';
@@ -178,7 +178,7 @@ export class SimulationApp {
     private lineSystem!: LineSystem;
     private controlBarManager!: ControlBarManager;
     private inputHandler!: InputHandler;
-    private debugVisualizer!: DebugVisualizerV8;
+    private debugVisualizer!: DebugVisualizer;
 
     private clock!: THREE.Clock;
     private kiteState!: KiteState;
@@ -269,11 +269,11 @@ export class SimulationApp {
         this.lineSystem = new LineSystem();
         this.scene.add(this.lineSystem.object3d); // Ajouter le système de lignes à la scène
         this.clock = new THREE.Clock();
-        
+
         // Composants V8 intégrés 
         this.controlBarManager = new ControlBarManager();
         this.inputHandler = new InputHandler();
-        this.debugVisualizer = new DebugVisualizerV8(this.scene);
+        this.debugVisualizer = new DebugVisualizer(this.scene);
 
         // État initial du kite
         this.kiteState = {
@@ -564,12 +564,12 @@ export class SimulationApp {
 
         // Rotation émergente avec validation (couple lissé = aéro + lignes)
         const angularAcceleration = validatedTorque.clone().divideScalar(CONFIG.kite.inertia);
-        
+
         // Limiter l'accélération angulaire
         if (angularAcceleration.length() > PhysicsConstants.MAX_ANGULAR_ACCELERATION) {
             angularAcceleration.normalize().multiplyScalar(PhysicsConstants.MAX_ANGULAR_ACCELERATION);
         }
-        
+
         this.kiteState.angularVelocity.add(angularAcceleration.multiplyScalar(deltaTime));
         this.kiteState.angularVelocity.multiplyScalar(CONFIG.physics.angularDamping);
 
@@ -593,7 +593,7 @@ export class SimulationApp {
 
         // VALIDATION POSITION FINALE (évite les NaN)
         this.validatePosition();
-        
+
         // Mise à jour position précédente pour prochaine frame
         this.previousPosition.copy(this.kite.position);
     }
@@ -662,15 +662,15 @@ export class SimulationApp {
         const windSim = this.windSimulator;
         const wind = windSim.getWindAt(kitePos);
         const apparent = wind.clone().sub(this.kiteState.velocity);
-        
+
         // Calculer les métriques aérodynamiques
-        const aeroMetrics = AerodynamicsCalculator.computeMetrics ? 
+        const aeroMetrics = AerodynamicsCalculator.computeMetrics ?
             AerodynamicsCalculator.computeMetrics(apparent, this.kite.quaternion) :
             { apparentSpeed: apparent.length(), liftMag: 0, dragMag: 0, lOverD: 0, aoaDeg: 0 };
 
         // Calculer l'asymétrie des forces
         const lineTensions = this.lineSystem.getLineTensions();
-        
+
         // Calculer la position dans la fenêtre de vol
         const deltaX = kitePos.x - pilotPos.x;
         const deltaY = kitePos.y - pilotPos.y;
@@ -715,7 +715,7 @@ export class SimulationApp {
                 tensions: `G:${lineTensions.leftTaut ? 'T' : 'S'} D:${lineTensions.rightTaut ? 'T' : 'S'}`,
                 warnings: warningText
             };
-            
+
             // Pas de spam - seulement toutes les 60 frames en mode debug (réduction spam)
             if (this.frameCount % 60 === 0) {
                 console.log('🔍 Métriques V8:', metricsInfo);
@@ -732,11 +732,11 @@ export class SimulationApp {
         const distance = kitePos.distanceTo(pilotPos);
         const currentLineLength = this.lineSystem.getLineLength();
 
-        // Distance ratio pour décrochage (seuils ajustés pour réalisme)
+        // Distance ratio pour sur-tension (seuils ajustés pour réalisme)
         const distanceRatio = distance / currentLineLength;
-        const isNearStall = distanceRatio > 0.98;   // 98% = proche décrochage
-        const isStalled = distanceRatio > 1.01;     // 101% = décrochage confirmé
-        const stallWarning = isStalled ? '🚨 DÉCROCHAGE!' : (isNearStall ? '⚠️ Proche décrochage' : '');
+        const isNearOverTension = distanceRatio > 0.98;   // 98% = proche sur-tension
+        const isOverTensioned = distanceRatio > 1.05;     // 105% = sur-tension confirmée
+        const tensionWarning = isOverTensioned ? '🚨 SUR-TENSION!' : (isNearOverTension ? '⚠️ Proche sur-tension' : '');
 
         // Asymétrie des forces
         const lineTensions = this.lineSystem.getLineTensions();
@@ -746,7 +746,7 @@ export class SimulationApp {
 
         const warnings = this.getWarnings();
 
-        const logMessage = 
+        const logMessage =
             `[V8 Frame ${this.frameCount}] ` +
             `Pos: [${kitePos.x.toFixed(1)}, ${kitePos.y.toFixed(1)}, ${kitePos.z.toFixed(1)}] ` +
             `| Vel: ${this.kiteState.velocity.length().toFixed(1)}m/s ` +
@@ -754,7 +754,7 @@ export class SimulationApp {
             `| Asymétrie: ${asymmetry > 0 ? '+' : ''}${asymmetry.toFixed(0)}% ` +
             `| Accel: ${this.lastAccelMagnitude.toFixed(1)} ` +
             (warnings.accel || warnings.velocity || warnings.angular ? '⚠️ WARNINGS' : '✅') +
-            (stallWarning ? ` ${stallWarning}` : '');
+            (tensionWarning ? ` ${tensionWarning}` : '');
 
         console.log(`📊 ${logMessage}`);
     }
@@ -1124,7 +1124,7 @@ export class SimulationApp {
         } else {
             this.hideDebugInfo();
         }
-        
+
         // Mettre à jour la visibilité de la légende
         this.updateDebugLegendVisibility();
     }

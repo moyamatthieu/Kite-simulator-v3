@@ -12,9 +12,65 @@ import * as THREE from 'three';
 import { PhysicsConstants, KiteGeometry, CONFIG, AerodynamicForces, SimulationMetrics } from '../core/constants';
 import { Kite } from '@objects/Kite';
 
+/**
+ * Données aérodynamiques détaillées pour une seule face du kite.
+ */
+export interface FaceAerodynamics {
+    faceIndex: number;
+    center: THREE.Vector3;
+    normal: THREE.Vector3;
+    apparentWind: THREE.Vector3;
+    force: THREE.Vector3;
+}
+
+/**
+ * Résultat complet des calculs aérodynamiques, incluant les forces totales
+ * et les données détaillées par face pour le debug.
+ */
+export interface DetailedAerodynamicForces extends AerodynamicForces {
+    perFaceData: FaceAerodynamics[];
+}
+
 export class AerodynamicsCalculator {
+
     /**
-     * Calcule comment le vent pousse sur le cerf-volant
+     * Extrait les 4 faces triangulaires de la voile du kite à partir de sa géométrie.
+     * Cette méthode lit dynamiquement les points de l'objet Kite pour construire les surfaces.
+     * @param kite L'instance de l'objet Kite.
+     * @returns Un tableau d'objets, chacun représentant une face avec ses sommets et son aire.
+     */
+    private static _extractFaces(kite: Kite): { vertices: THREE.Vector3[]; area: number }[] {
+        const pNez = kite.getPoint('NEZ');
+        const pGauche = kite.getPoint('BORD_GAUCHE');
+        const pDroit = kite.getPoint('BORD_DROIT');
+        const pBas = kite.getPoint('SPINE_BAS');
+        const pMilieu = kite.getPoint('SPINE_MILIEU');
+
+        if (!pNez || !pGauche || !pDroit || !pBas || !pMilieu) {
+            console.error("Points de géométrie du kite manquants. Impossible d'extraire les faces.");
+            return [];
+        }
+
+        // Définition des 4 faces triangulaires de la voile
+        const faces = [
+            { vertices: [pNez, pGauche, pMilieu] },
+            { vertices: [pNez, pMilieu, pDroit] },
+            { vertices: [pMilieu, pGauche, pBas] },
+            { vertices: [pMilieu, pDroit, pBas] },
+        ];
+
+        // Calcul de l'aire pour chaque face
+        return faces.map(face => {
+            const [v1, v2, v3] = face.vertices;
+            const edge1 = new THREE.Vector3().subVectors(v2, v1);
+            const edge2 = new THREE.Vector3().subVectors(v3, v1);
+            const area = new THREE.Vector3().crossVectors(edge1, edge2).length() / 2;
+            return { ...face, area };
+        });
+    }
+
+    /**
+     * Calcule comment le vent pousse sur le cerf-volant, en analysant chaque face.
      * 
      * COMMENT ÇA MARCHE :
      * 1. On regarde chaque triangle du cerf-volant
@@ -29,29 +85,34 @@ export class AerodynamicsCalculator {
     static calculateForces(
         apparentWind: THREE.Vector3,
         kiteOrientation: THREE.Quaternion,
-        kite?: Kite
-    ): AerodynamicForces {
+        kite: Kite // Le kite est maintenant obligatoire pour extraire les faces
+    ): DetailedAerodynamicForces {
         const windSpeed = apparentWind.length();
-        if (windSpeed < 0.1) {
+        if (windSpeed < 0.1 || !kite) {
             return {
                 lift: new THREE.Vector3(),
                 drag: new THREE.Vector3(),
-                torque: new THREE.Vector3()
+                torque: new THREE.Vector3(),
+                leftForce: new THREE.Vector3(),
+                rightForce: new THREE.Vector3(),
+                perFaceData: []
             };
         }
 
         const windDir = apparentWind.clone().normalize();
         const dynamicPressure = 0.5 * CONFIG.physics.airDensity * windSpeed * windSpeed;
 
-        // Forces séparées pour gauche et droite
         let leftForce = new THREE.Vector3();
         let rightForce = new THREE.Vector3();
         let totalForce = new THREE.Vector3();
         let totalTorque = new THREE.Vector3();
+        const perFaceData: FaceAerodynamics[] = [];
+
+        // Extraction dynamique des faces du kite au lieu d'utiliser une constante
+        const kiteFaces = this._extractFaces(kite);
 
         // On examine chaque triangle du cerf-volant un par un
-        // C'est comme vérifier comment le vent frappe chaque panneau d'un parasol
-        KiteGeometry.SURFACES.forEach((surface) => {
+        kiteFaces.forEach((surface, index) => {
             // Pour comprendre comment le vent frappe ce triangle,
             // on doit savoir dans quelle direction il "regarde"
             // (comme l'orientation d'un panneau solaire)
@@ -81,33 +142,43 @@ export class AerodynamicsCalculator {
             const forceMagnitude = dynamicPressure * surface.area * cosIncidence;
             const force = normalDir.multiplyScalar(forceMagnitude);
 
-            // 6. Centre de pression = centre géométrique du triangle
-            const centre = surface.vertices[0].clone()
+            // 6. Centre de pression = centre géométrique du triangle (en coordonnées locales)
+            const centreLocal = surface.vertices[0].clone()
                 .add(surface.vertices[1])
                 .add(surface.vertices[2])
                 .divideScalar(3);
 
             // On note si cette force est sur le côté gauche ou droit
-            // C'est important car si un côté a plus de force,
-            // le kite va tourner (comme un bateau avec une seule rame)
-            const isLeft = centre.x < 0;  // Négatif = gauche, Positif = droite
+            const isLeft = centreLocal.x < 0;
 
             if (isLeft) {
-                leftForce.add(force);  // On additionne à la force totale gauche
+                leftForce.add(force);
             } else {
-                rightForce.add(force); // On additionne à la force totale droite
+                rightForce.add(force);
             }
 
             totalForce.add(force);
 
-            // Le couple, c'est ce qui fait tourner le kite
-            // Imaginez une porte : si vous poussez près des gonds, elle tourne peu
-            // Si vous poussez loin des gonds, elle tourne beaucoup
-            // Ici, plus la force est loin du centre, plus elle fait tourner
-            const centreWorld = centre.clone().applyQuaternion(kiteOrientation);
-            const torque = new THREE.Vector3().crossVectors(centreWorld, force);
+            // Le couple est le produit vectoriel du bras de levier (position du centre de la face)
+            // et de la force appliquée. Le bras de levier est la position du centre de la face
+            // par rapport au centre de masse du kite (qui est à l'origine de son repère local).
+            const torque = new THREE.Vector3().crossVectors(centreLocal, force);
             totalTorque.add(torque);
+
+            // Stockage des données de debug pour cette face
+            perFaceData.push({
+                faceIndex: index,
+                // Le centre pour le debug doit être la position absolue dans le monde
+                center: centreLocal.clone().applyQuaternion(kiteOrientation).add(kite.position),
+                normal: normaleMonde,
+                apparentWind: apparentWind,
+                force: force.clone(),
+            });
         });
+
+        // Le couple total a été calculé en repère local, il faut le transformer en repère monde
+        totalTorque.applyQuaternion(kiteOrientation);
+
 
         // PHYSIQUE ÉMERGENTE : Le couple vient de la différence G/D
         // Si leftForce > rightForce → rotation vers la droite
@@ -131,8 +202,9 @@ export class AerodynamicsCalculator {
             lift,
             drag,
             torque: totalTorque.multiplyScalar(torqueScale),
-            leftForce,    // Exposer les forces pour analyse
-            rightForce    // Permet de voir l'asymétrie émergente
+            leftForce,
+            rightForce,
+            perFaceData // On retourne les données détaillées
         };
     }
 
@@ -141,14 +213,15 @@ export class AerodynamicsCalculator {
      */
     static computeMetrics(
         apparentWind: THREE.Vector3,
-        kiteOrientation: THREE.Quaternion
+        kiteOrientation: THREE.Quaternion,
+        kite: Kite // Ajout du kite pour l'extraction des faces
     ): SimulationMetrics {
         const windSpeed = apparentWind.length();
-        if (windSpeed < PhysicsConstants.EPSILON) {
+        if (windSpeed < PhysicsConstants.EPSILON || !kite) {
             return { apparentSpeed: 0, liftMag: 0, dragMag: 0, lOverD: 0, aoaDeg: 0 };
         }
 
-        const { lift } = this.calculateForces(apparentWind, kiteOrientation);
+        const { lift } = this.calculateForces(apparentWind, kiteOrientation, kite);
         const liftMag = lift.length();
         const dragMag = 0; // Traînée intégrée dans les forces totales
         const lOverD = 0; // Ratio non applicable pour un cerf-volant
@@ -157,7 +230,8 @@ export class AerodynamicsCalculator {
         const windDir = apparentWind.clone().normalize();
         let weightedNormal = new THREE.Vector3();
 
-        KiteGeometry.SURFACES.forEach((surface) => {
+        const kiteFaces = this._extractFaces(kite);
+        kiteFaces.forEach((surface) => {
             const edge1 = surface.vertices[1].clone().sub(surface.vertices[0]);
             const edge2 = surface.vertices[2].clone().sub(surface.vertices[0]);
             const normaleMonde = new THREE.Vector3()

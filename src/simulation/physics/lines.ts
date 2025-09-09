@@ -34,15 +34,15 @@ export class Line {
   private visualLine: THREE.Line; // Représentation graphique
 
   constructor(
-    pointA: THREE.Vector3, 
-    pointB: THREE.Vector3, 
+    pointA: THREE.Vector3,
+    pointB: THREE.Vector3,
     maxLength: number,
     color: number = 0x333333
   ) {
     this.pointA = pointA;
     this.pointB = pointB;
     this.maxLength = maxLength;
-    
+
     // Créer la représentation visuelle
     const material = new THREE.LineBasicMaterial({ color, linewidth: 2 });
     const geometry = new THREE.BufferGeometry().setFromPoints([pointA, pointB]);
@@ -57,22 +57,22 @@ export class Line {
    */
   enforceConstraint(mobilePoint: THREE.Vector3, fixedPoint: THREE.Vector3): void {
     const distance = fixedPoint.distanceTo(mobilePoint);
-    
+
     // SEULEMENT si la ligne est étirée au-delà de sa longueur max
     if (distance > this.maxLength) {
       // Calculer la direction du point fixe vers le point mobile
       const direction = mobilePoint.clone().sub(fixedPoint).normalize();
-      
+
       // Placer le point mobile à EXACTEMENT maxLength du point fixe
       // Le point peut ensuite bouger librement sur cette sphère
       const constrainedPosition = fixedPoint.clone().add(
         direction.multiplyScalar(this.maxLength)
       );
-      
+
       // FORCER seulement la distance, pas la direction
       mobilePoint.copy(constrainedPosition);
     }
-    
+
     // Si distance <= maxLength : AUCUNE contrainte !
     // Le point est complètement libre de bouger (pivot libre)
   }
@@ -114,18 +114,18 @@ export class Line {
 
   private calculateDisplayPoints(): THREE.Vector3[] {
     const distance = this.getCurrentDistance();
-    
+
     // Si tendue, ligne droite
     if (distance >= this.maxLength) {
       return [this.pointA, this.pointB];
     }
-    
+
     // Si molle, caténaire simple
     const points: THREE.Vector3[] = [];
     const segments = 5;
     const slack = this.maxLength - distance;
     const sag = slack * 0.1; // Léger affaissement
-    
+
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
       const point = new THREE.Vector3().lerpVectors(this.pointA, this.pointB, t);
@@ -133,7 +133,7 @@ export class Line {
       point.y -= sag * t * (1 - t);
       points.push(point);
     }
-    
+
     return points;
   }
 
@@ -157,7 +157,7 @@ export class LineSystem {
   private leftLine: Line;   // Ligne poignée gauche → contrôle gauche kite
   private rightLine: Line;  // Ligne poignée droite → contrôle droit kite
   private group = new THREE.Group();
-  
+
   // Points de connexion (références, mis à jour dynamiquement)
   private leftHandlePos = new THREE.Vector3();
   private rightHandlePos = new THREE.Vector3();
@@ -167,16 +167,16 @@ export class LineSystem {
   constructor(lineLength: number = CONFIG.lines.defaultLength) {
     // Créer les deux lignes avec couleurs distinctes
     this.leftLine = new Line(
-      this.leftHandlePos, 
-      this.leftKitePos, 
-      lineLength, 
+      this.leftHandlePos,
+      this.leftKitePos,
+      lineLength,
       0x1e90ff // Bleu
     );
-    
+
     this.rightLine = new Line(
-      this.rightHandlePos, 
-      this.rightKitePos, 
-      lineLength, 
+      this.rightHandlePos,
+      this.rightKitePos,
+      lineLength,
       0xff5555 // Rouge
     );
 
@@ -220,28 +220,55 @@ export class LineSystem {
     const rightLineDir = this.rightHandlePos.clone().sub(rightWorld).normalize();
 
     // PRINCIPE CLÉ : Chaque ligne a une longueur MAX fixe (ex: 15m)
-    // - Si distance géométrique < longueur max = ligne molle = AUCUNE force
-    // - Si distance géométrique > longueur max = ligne tendue = force proportionnelle
+    // La tension est nulle si la ligne est molle, puis augmente progressivement
+    // dans une "zone de raffermissement" avant d'atteindre la raideur maximale.
     let leftForce = new THREE.Vector3();
     let rightForce = new THREE.Vector3();
 
     const lineStiffness = CONFIG.lines.stiffness || 25000; // N/m
     const maxTension = CONFIG.lines.maxTension || 1000;    // N
+    const STIFFENING_ZONE = 0.05; // 5% de la longueur de la ligne
 
-    // PHYSIQUE LIGNE GAUCHE : 
-    // Poignée gauche s'est déplacée → nouvelle distance géométrique
-    if (leftDistance > this.leftLine.getMaxLength()) {
-      const extension = leftDistance - this.leftLine.getMaxLength();
-      const tension = Math.min(lineStiffness * extension, maxTension);
-      leftForce = leftLineDir.multiplyScalar(tension);
+    // Fonction pour une transition douce (smoothstep)
+    const smoothstep = (min: number, max: number, value: number) => {
+      const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+      return x * x * (3 - 2 * x);
+    };
+
+    // PHYSIQUE LIGNE GAUCHE : Raffermissement progressif
+    const leftMaxLength = this.leftLine.getMaxLength();
+    const leftStiffeningStart = leftMaxLength * (1 - STIFFENING_ZONE);
+
+    if (leftDistance > leftStiffeningStart) {
+      let tension = 0;
+      if (leftDistance < leftMaxLength) {
+        // Zone de raffermissement progressif
+        const factor = smoothstep(leftStiffeningStart, leftMaxLength, leftDistance);
+        tension = factor * lineStiffness * (leftDistance - leftStiffeningStart);
+      } else {
+        // Zone de raideur maximale (au-delà de la longueur max)
+        const extension = leftDistance - leftMaxLength;
+        tension = lineStiffness * (leftStiffeningStart * STIFFENING_ZONE + extension);
+      }
+      leftForce = leftLineDir.multiplyScalar(Math.min(tension, maxTension));
     }
 
-    // PHYSIQUE LIGNE DROITE :
-    // Poignée droite s'est déplacée → nouvelle distance géométrique  
-    if (rightDistance > this.rightLine.getMaxLength()) {
-      const extension = rightDistance - this.rightLine.getMaxLength();
-      const tension = Math.min(lineStiffness * extension, maxTension);
-      rightForce = rightLineDir.multiplyScalar(tension);
+    // PHYSIQUE LIGNE DROITE : Raffermissement progressif
+    const rightMaxLength = this.rightLine.getMaxLength();
+    const rightStiffeningStart = rightMaxLength * (1 - STIFFENING_ZONE);
+
+    if (rightDistance > rightStiffeningStart) {
+      let tension = 0;
+      if (rightDistance < rightMaxLength) {
+        // Zone de raffermissement progressif
+        const factor = smoothstep(rightStiffeningStart, rightMaxLength, rightDistance);
+        tension = factor * lineStiffness * (rightDistance - rightStiffeningStart);
+      } else {
+        // Zone de raideur maximale (au-delà de la longueur max)
+        const extension = rightDistance - rightMaxLength;
+        tension = lineStiffness * (rightStiffeningStart * STIFFENING_ZONE + extension);
+      }
+      rightForce = rightLineDir.multiplyScalar(Math.min(tension, maxTension));
     }
 
     // COUPLE ÉMERGENT : Résulte de l'asymétrie des tensions (comme SimulationV8)
@@ -285,13 +312,13 @@ export class LineSystem {
   ): void {
     // 1. Mettre à jour les positions des poignées de la barre
     this.updateHandlePositions(controlRotation, pilotPosition);
-    
+
     // 2. Mettre à jour les positions des points de contrôle du kite
     this.updateKiteControlPoints(kite);
-    
+
     // 3. APPLIQUER LES CONTRAINTES PBD AVANCÉES
     this.enforceLineConstraintsPBD(kite);
-    
+
     // 4. Mettre à jour l'affichage visuel
     this.leftLine.updateVisual();
     this.rightLine.updateVisual();
@@ -400,7 +427,7 @@ export class LineSystem {
     // NOUVELLES POSITIONS WORLD des poignées après rotation
     this.leftHandlePos.copy(pilotPosition).add(leftOffset);
     this.rightHandlePos.copy(pilotPosition).add(rightOffset);
-    
+
     // RÉSULTAT : Les poignées ont bougé dans l'espace world
     // → Les distances géométriques kite ↔ poignées ont changé
     // → Certaines lignes peuvent devenir tendues, d'autres molles
@@ -409,7 +436,7 @@ export class LineSystem {
   private updateKiteControlPoints(kite: Kite): void {
     const ctrlLeft = kite.getPoint('CTRL_GAUCHE');
     const ctrlRight = kite.getPoint('CTRL_DROIT');
-    
+
     if (ctrlLeft && ctrlRight) {
       // Positions mondiales des points de contrôle
       this.leftKitePos.copy(ctrlLeft).applyQuaternion(kite.quaternion).add(kite.position);
@@ -418,35 +445,35 @@ export class LineSystem {
   }
 
   private resolveKitePosition(
-    kite: Kite, 
-    constrainedLeftPos: THREE.Vector3, 
+    kite: Kite,
+    constrainedLeftPos: THREE.Vector3,
     constrainedRightPos: THREE.Vector3
   ): void {
     // PHYSIQUE PURE : Calculer SEULEMENT la position basée sur les contraintes géométriques
     // L'orientation émerge UNIQUEMENT des forces aérodynamiques dans SimulationApp
     const ctrlLeft = kite.getPoint('CTRL_GAUCHE');
     const ctrlRight = kite.getPoint('CTRL_DROIT');
-    
+
     if (!ctrlLeft || !ctrlRight) return;
-    
+
     // Position locale des points de contrôle dans le repère du kite
     const leftLocal = ctrlLeft.clone();
     const rightLocal = ctrlRight.clone();
-    
+
     // Centre local entre les deux points de contrôle
     const centerLocal = leftLocal.clone().add(rightLocal).multiplyScalar(0.5);
-    
+
     // Centre mondial contraint par les deux lignes
     const centerWorld = constrainedLeftPos.clone().add(constrainedRightPos).multiplyScalar(0.5);
-    
+
     // Calculer la nouvelle position du kite basée sur les contraintes géométriques
     const centerLocalWorld = centerLocal.clone().applyQuaternion(kite.quaternion);
     const newKitePosition = centerWorld.clone().sub(centerLocalWorld);
-    
+
     // Appliquer SEULEMENT la nouvelle position
     // L'orientation sera gérée par les forces aérodynamiques dans updatePhysics()
     kite.position.copy(newKitePosition);
-    
+
     // *** AUCUNE ROTATION ARTIFICIELLE ***
     // Le kite s'oriente naturellement via :
     // 1. Forces aérodynamiques (AerodynamicsCalculator)
@@ -500,7 +527,7 @@ export class LineSystem {
     this.leftKitePos.copy(leftB);
     this.rightHandlePos.copy(rightA);
     this.rightKitePos.copy(rightB);
-    
+
     // Mettre à jour l'affichage
     this.leftLine.updateVisual();
     this.rightLine.updateVisual();
