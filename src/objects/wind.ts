@@ -9,8 +9,9 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '@core/constants';
+import { C_objet, C_objetConfig } from './C_objet';
 
-export class WindSimulator {
+export class WindSimulator extends C_objet {
   private speed: number; // m/s
   private direction: number; // degrés
   private turbulence: number; // Turbulence par défaut V8 (3%)
@@ -25,13 +26,19 @@ export class WindSimulator {
   private readonly turbulenceIntensityY = 0.2;
   private readonly maxApparentSpeed: number;
 
-  constructor(initialSpeedMs?: number, initialDirectionDeg?: number) {
+  constructor(initialSpeedMs?: number, initialDirectionDeg?: number, config: C_objetConfig = {}) {
+    super(config);
+
     this.speed = initialSpeedMs !== undefined ? initialSpeedMs : (CONFIG.wind.defaultSpeed * 1000) / 3600; // Convert km/h to m/s
     this.direction = initialDirectionDeg !== undefined ? initialDirectionDeg : CONFIG.wind.defaultDirection;
     this.turbulence = CONFIG.wind.defaultTurbulence; // Utilise la turbulence de la config
     this.turbulenceScale = CONFIG.wind.turbulenceScale;
     this.turbulenceFreqBase = CONFIG.wind.turbulenceFreqBase;
     this.maxApparentSpeed = CONFIG.wind.maxApparentSpeed;
+  }
+
+  protected createGeometry(): void {
+    // Le simulateur de vent n'a pas de géométrie Three.js
   }
 
 

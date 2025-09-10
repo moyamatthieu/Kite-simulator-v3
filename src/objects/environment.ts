@@ -9,10 +9,9 @@
  */
 
 import * as THREE from 'three';
+import { C_objet, C_objetConfig } from './C_objet';
 
-export class Environment {
-  private group = new THREE.Group();
-
+export class Environment extends C_objet {
   // Eléments
   private skyDome: THREE.Mesh | null = null;
   private boundsHelper: THREE.Box3Helper | null = null;
@@ -21,8 +20,8 @@ export class Environment {
   private axes: THREE.AxesHelper;
   private ground: THREE.Mesh;
 
-  constructor() {
-    this.group.name = 'Environment';
+  constructor(config: C_objetConfig = {}) {
+    super(config);
 
     // Sol (grand disque)
     const groundMat = new THREE.MeshLambertMaterial({ color: 0x2d7d2a });
@@ -53,6 +52,10 @@ export class Environment {
 
     // Limites du monde par défaut
     this.setBounds({ minX: -50, maxX: 50, minY: 0, maxY: 100, minZ: -50, maxZ: 50 });
+  }
+
+  protected createGeometry(): void {
+    // La géométrie est créée dans le constructeur
   }
 
   get object3d(): THREE.Object3D { return this.group; }
@@ -132,4 +135,3 @@ export class Environment {
     this.group.add(this.windArrow);
   }
 }
-

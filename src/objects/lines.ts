@@ -23,6 +23,7 @@
 import * as THREE from 'three';
 import { PhysicsConstants, CONFIG } from '@core/constants';
 import { Kite } from '@objects/Kite';
+import { C_objet, C_objetConfig } from './C_objet';
 
 /**
  * Une ligne individuelle entre 2 points avec contrainte de distance
@@ -153,10 +154,9 @@ export class Line {
 /**
  * Système de 2 lignes indépendantes : gauche et droite
  */
-export class LineSystem {
+export class LineSystem extends C_objet {
   private leftLine: Line;   // Ligne poignée gauche → contrôle gauche kite
   private rightLine: Line;  // Ligne poignée droite → contrôle droit kite
-  private group = new THREE.Group();
 
   // Points de connexion (références, mis à jour dynamiquement)
   private leftHandlePos = new THREE.Vector3();
@@ -164,7 +164,9 @@ export class LineSystem {
   private leftKitePos = new THREE.Vector3();
   private rightKitePos = new THREE.Vector3();
 
-  constructor(lineLength: number = CONFIG.lines.defaultLength) {
+  constructor(lineLength: number = CONFIG.lines.defaultLength, config: C_objetConfig = {}) {
+    super(config);
+
     // Créer les deux lignes avec couleurs distinctes
     this.leftLine = new Line(
       this.leftHandlePos,
@@ -182,6 +184,10 @@ export class LineSystem {
 
     this.group.name = 'LineSystem';
     this.group.add(this.leftLine.object3d, this.rightLine.object3d);
+  }
+
+  protected createGeometry(): void {
+    // La géométrie est créée dans le constructeur
   }
 
   /**
@@ -524,7 +530,7 @@ export class LineSystem {
    * Met à jour uniquement l'affichage visuel (sans contraintes)
    * Utile pour compatibilité avec ancien code
    */
-  update(leftA: THREE.Vector3, leftB: THREE.Vector3, rightA: THREE.Vector3, rightB: THREE.Vector3): void {
+  updateVisual(leftA: THREE.Vector3, leftB: THREE.Vector3, rightA: THREE.Vector3, rightB: THREE.Vector3): void {
     // Mettre à jour les positions des points de référence
     this.leftHandlePos.copy(leftA);
     this.leftKitePos.copy(leftB);

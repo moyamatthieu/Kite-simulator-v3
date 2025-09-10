@@ -1,4 +1,12 @@
 /**
+ * Génère un identifiant unique simple.
+ * @returns Une chaîne de caractères unique.
+ */
+export function generateId(): string {
+  return `id_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
  * debug.ts - Système de debug visuel avancé V8
  *
  * AMÉLIORATIONS V8 INTÉGRÉES :
@@ -21,6 +29,15 @@ const VECTOR_VISUAL_SCALE = 0.8;
 const NORMAL_VISUAL_LENGTH = 0.6;
 const MIN_ARROW_LENGTH = 0.1;
 const MAX_TRAJECTORY_POINTS = 200;
+
+
+/**
+ * Génère un identifiant unique simple.
+ * @returns Une chaîne de caractères unique.
+ */
+export function generateId(): string {
+  return `id_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
 
 /**
  * Interface pour les données de debug étendues V8
@@ -264,12 +281,12 @@ export class DebugVisualizer {
   ): void {
     if (!this.isEnabled) return;
 
-    const kitePosition = kite.position.clone();
+    const kitePosition = kite.group.position.clone();
 
     // Calculer le centre géométrique du kite
     const centerLocal = new THREE.Vector3(0, 0.325, 0);
     const centerWorld = centerLocal.clone()
-      .applyQuaternion(kite.quaternion)
+      .applyQuaternion(kite.group.quaternion)
       .add(kitePosition);
 
     // Utiliser les données étendues si disponibles, sinon calculer
@@ -282,7 +299,7 @@ export class DebugVisualizer {
     );
 
     // Mettre à jour les vecteurs principaux
-    this.updateMainVectors(centerWorld, data);
+    this.updateMainVectors(centerWorld, data, kite);
 
     // Mettre à jour les indicateurs
     this.updateIndicators(centerWorld, data);
@@ -297,7 +314,7 @@ export class DebugVisualizer {
   /**
    * Met à jour les vecteurs principaux
    */
-  private updateMainVectors(centerWorld: THREE.Vector3, data: ExtendedDebugData): void {
+  private updateMainVectors(centerWorld: THREE.Vector3, data: ExtendedDebugData, kite: Kite): void {
     // Vitesse
     if (data.kiteVelocity.length() > 0.1) {
       this.velocityArrow.position.copy(centerWorld);
@@ -342,7 +359,7 @@ export class DebugVisualizer {
     if (data.lineForces.leftForce.length() > 0) {
       const leftAttach = kite.getPoint('CTRL_GAUCHE');
       if (leftAttach) {
-        const leftWorld = leftAttach.clone().applyQuaternion(kite.quaternion).add(kite.position);
+        const leftWorld = leftAttach.clone().applyQuaternion(kite.group.quaternion).add(kite.group.position);
         this.leftLineArrow.position.copy(leftWorld);
         this.leftLineArrow.setDirection(data.lineForces.leftForce.clone().normalize());
         this.leftLineArrow.setLength(Math.min(data.lineForces.leftForce.length() * 0.01, 1));
@@ -354,7 +371,7 @@ export class DebugVisualizer {
     if (data.lineForces.rightForce.length() > 0) {
       const rightAttach = kite.getPoint('CTRL_DROIT');
       if (rightAttach) {
-        const rightWorld = rightAttach.clone().applyQuaternion(kite.quaternion).add(kite.position);
+        const rightWorld = rightAttach.clone().applyQuaternion(kite.group.quaternion).add(kite.group.position);
         this.rightLineArrow.position.copy(rightWorld);
         this.rightLineArrow.setDirection(data.lineForces.rightForce.clone().normalize());
         this.rightLineArrow.setLength(Math.min(data.lineForces.rightForce.length() * 0.01, 1));
@@ -492,7 +509,7 @@ export class DebugVisualizer {
     pilotPosition: THREE.Vector3
   ): ExtendedDebugData {
     const kiteState = {
-      position: kite.position.clone(),
+      position: kite.group.position.clone(),
       velocity: new THREE.Vector3(), // À récupérer depuis le contrôleur
       angularVelocity: new THREE.Vector3()
     };
@@ -500,10 +517,14 @@ export class DebugVisualizer {
     const apparentWind = windSimulator.getApparentWind(kiteState.velocity, 0);
 
     // Calculer les forces (simplifié)
-    const lineForces = lineSystem.calculateLineTensions(kite, controlRotation, pilotPosition);
+    const lineForces = {
+      leftForce: new THREE.Vector3(),
+      rightForce: new THREE.Vector3(),
+      torque: new THREE.Vector3(),
+    }; //lineSystem.calculateLineTensions(kite, controlRotation, pilotPosition);
 
     return {
-      kitePosition: kite.position.clone(),
+      kitePosition: kite.group.position.clone(),
       kiteVelocity: kiteState.velocity,
       kiteAngularVelocity: kiteState.angularVelocity,
       apparentWind,
@@ -537,20 +558,20 @@ export class DebugVisualizer {
     pilotPosition: THREE.Vector3
   ): DebugMetrics {
     const kiteState = {
-      position: kite.position.clone(),
+      position: kite.group.position.clone(),
       velocity: new THREE.Vector3(),
       angularVelocity: new THREE.Vector3()
     };
 
     const windParams = windSimulator.getParams();
-    const lineMetrics = lineSystem.getLineMetrics(kite, controlRotation, pilotPosition);
+    // const lineMetrics = lineSystem.getLineMetrics(kite, controlRotation, pilotPosition);
 
     return {
-      kitePosition: `[${kite.position.x.toFixed(1)}, ${kite.position.y.toFixed(1)}, ${kite.position.z.toFixed(1)}]`,
+      kitePosition: `[${kite.group.position.x.toFixed(1)}, ${kite.group.position.y.toFixed(1)}, ${kite.group.position.z.toFixed(1)}]`,
       kiteVelocity: `${kiteState.velocity.length().toFixed(1)} m/s`,
       windSpeed: `${windParams.speed} km/h (${(windParams.speed / 3.6).toFixed(1)} m/s)`,
       warnings: { accel: false, velocity: false, angular: false },
-      lineMetrics,
+      lineMetrics: {}, //lineMetrics,
       aeroMetrics: { apparentSpeed: 0, liftMag: 0, dragMag: 0, lOverD: 0, aoaDeg: 0 }
     };
   }
@@ -567,10 +588,14 @@ export class DebugVisualizer {
   }
 
   /**
-   * Efface les labels
+   * Efface tous les labels de forces
    */
   private clearLabels(): void {
-    this.forceLabels.forEach(label => this.group.remove(label));
+    this.forceLabels.forEach(sprite => {
+      this.group.remove(sprite);
+      sprite.material.map?.dispose();
+      sprite.material.dispose();
+    });
     this.forceLabels.clear();
   }
 
@@ -600,60 +625,16 @@ export class DebugVisualizer {
   }
 }
 
-// ==============================================================================
-// CLASSE DE COMPATIBILITÉ - Wrapper pour l'ancienne API
-// ==============================================================================
 
-/**
- * @interface SurfaceDebug - Interface de compatibilité
- */
-interface SurfaceDebug {
-  apparentWind: THREE.ArrowHelper;
-  lift: THREE.ArrowHelper;
-  drag: THREE.ArrowHelper;
-  normal: THREE.ArrowHelper;
-  resultante: THREE.ArrowHelper;
+dispose(): void {
+  this.visualizer.dispose();
+}
 }
 
 /**
- * @class DebugVectors - Wrapper de compatibilité pour l'ancienne API
- * @description Wrapper pour maintenir la compatibilité avec l'ancien système de debug
+ * Fonction de log personnalisée
  */
-export class DebugVectors {
-  private visualizer: DebugVisualizer;
-  private surfaceDebug: SurfaceDebug[] = [];
-
-  constructor() {
-    // Créer une scène temporaire pour l'initialisation
-    const tempScene = new THREE.Scene();
-    this.visualizer = new DebugVisualizer(tempScene);
-
-    // Créer des surfaces de debug vides pour la compatibilité
-    for (let i = 0; i < 4; i++) {
-      this.surfaceDebug.push({
-        apparentWind: new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 1, 0x00e0ff),
-        lift: new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 1, 0x0088ff),
-        drag: new THREE.ArrowHelper(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(), 1, 0xff0000),
-        normal: new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 0.6, 0x888888),
-        resultante: new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 1, 0x66aaff)
-      });
-    }
-  }
-
-  get object3d(): THREE.Object3D {
-    return this.visualizer['group'];
-  }
-
-  setVisible(visible: boolean): void {
-    this.visualizer.setEnabled(visible);
-  }
-
-  update(kitePosition: THREE.Vector3, data: any): void {
-    // Cette méthode est maintenue pour la compatibilité
-    // Le nouveau système V8 gère les mises à jour différemment
-  }
-
-  dispose(): void {
-    this.visualizer.dispose();
-  }
+export function log(message: string, ...args: any[]): void {
+  console.log(`[LOG] ${message}`, ...args);
 }
+

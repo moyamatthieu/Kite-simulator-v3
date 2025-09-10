@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Kite, KiteGeometry } from '@objects/Kite';
+import { Pilote3D } from '@objects/Pilote';
 import { PhysicsEngine } from '@physics/PhysicsEngine';
 import { DebugVisualizer } from '@physics/DebugVisualizer';
 import { CONFIG, PhysicsConstants, WindParams, KiteState, HandlePositions } from '@core/constants';
@@ -171,7 +172,7 @@ export class SimulationApp {
     private renderer!: THREE.WebGLRenderer;
     private controls!: OrbitControls;
     private kite!: Kite;
-    private controlBar!: THREE.Group;
+    private pilote!: Pilote3D;
 
     // Composants V8 intégrés
     private windSimulator!: WindSimulator;
@@ -228,6 +229,13 @@ export class SimulationApp {
         this.init(targetContainer);
         this.setupControls();
         this.animate();
+
+        // Supprimer l'overlay de chargement une fois la scène initialisée
+        // Gère à la fois .loading et des variantes possibles (#div_loading / #loading)
+        const loadingEl = targetContainer.querySelector('.loading, #div_loading, #loading');
+        if (loadingEl && loadingEl.parentElement) {
+            loadingEl.parentElement.removeChild(loadingEl);
+        }
     }
 
     private init(container: HTMLElement): void {
@@ -261,11 +269,11 @@ export class SimulationApp {
         // Environnement
         this.setupEnvironment();
 
+        // Barre de contrôle et pilote (référence principale)
+        this.setupControlBar();
+
         // Cerf-volant avec Kite.ts
         this.setupKite();
-
-        // Barre de contrôle
-        this.setupControlBar();
 
         // Lignes
         this.createControlLines();
@@ -277,16 +285,16 @@ export class SimulationApp {
         this.clock = new THREE.Clock();
 
         // Composants V8 intégrés 
-        this.controlBarManager = new ControlBarManager();
+        // ControlBarManager sera initialisé après la création du pilote
         this.inputHandler = new InputHandler();
         this.debugVisualizer = new DebugVisualizer(this.scene);
 
         // État initial du kite
         this.kiteState = {
-            position: this.kite.position.clone(),
+            position: this.kite.getPosition().clone(),
             velocity: new THREE.Vector3(),
             angularVelocity: new THREE.Vector3(),
-            orientation: this.kite.quaternion.clone()
+            orientation: this.kite.getGroup().quaternion.clone()
         };
 
         // Stocker l'état dans userData pour compatibilité PBD
@@ -294,7 +302,7 @@ export class SimulationApp {
         this.kite.userData.angularVelocity = this.kiteState.angularVelocity;
 
         // Initialiser position précédente pour validation
-        this.previousPosition.copy(this.kite.position);
+        this.previousPosition.copy(this.kite.getPosition());
 
         // Interface utilisateur compacte
         this.ui = new CompactUI(this);
@@ -351,50 +359,25 @@ export class SimulationApp {
         });
 
         // Position initiale réaliste
-        const pilotPos = CONFIG.controlBar.position;
+        const pilotPos = this.pilote.getControlBarWorldPosition();
         const initialDistance = CONFIG.lines.defaultLength * 0.95;
         const kiteY = 7;
         const dy = kiteY - pilotPos.y;
         const horizontal = Math.max(0.1, Math.sqrt(Math.max(0, initialDistance * initialDistance - dy * dy)));
 
-        this.kite.position.set(pilotPos.x, kiteY, pilotPos.z - horizontal);
-        this.kite.castShadow = true;
+        this.kite.setPosition(new THREE.Vector3(pilotPos.x, kiteY, pilotPos.z - horizontal));
+        this.kite.getGroup().castShadow = true;
 
         this.scene.add(this.kite);
     }
 
     private setupControlBar(): void {
-        this.controlBar = new THREE.Group();
-        this.controlBar.position.copy(CONFIG.controlBar.position);
+        // Pilote avec barre de contrôle intégrée (référence principale)
+        this.pilote = new Pilote3D();
+        this.scene.add(this.pilote.getGroup());
 
-        // Barre
-        const barGeometry = new THREE.CylinderGeometry(0.02, 0.02, CONFIG.controlBar.width);
-        const barMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        const bar = new THREE.Mesh(barGeometry, barMaterial);
-        bar.rotation.z = Math.PI / 2;
-        this.controlBar.add(bar);
-
-        // Poignées
-        const handleGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.15);
-        const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-
-        const leftHandle = new THREE.Mesh(handleGeometry, handleMaterial);
-        leftHandle.position.set(-CONFIG.controlBar.width / 2, 0, 0);
-        this.controlBar.add(leftHandle);
-
-        const rightHandle = new THREE.Mesh(handleGeometry, handleMaterial);
-        rightHandle.position.set(CONFIG.controlBar.width / 2, 0, 0);
-        this.controlBar.add(rightHandle);
-
-        // Pilote
-        const pilotGeometry = new THREE.BoxGeometry(0.4, 1.6, 0.3);
-        const pilotMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a });
-        const pilot = new THREE.Mesh(pilotGeometry, pilotMaterial);
-        pilot.position.set(0, 0.8, 8.5);
-        pilot.castShadow = true;
-
-        this.scene.add(this.controlBar);
-        this.scene.add(pilot);
+        // Initialise le ControlBarManager avec la position du pilote
+        this.controlBarManager = new ControlBarManager(this.pilote.getControlBarWorldPosition());
     }
 
     private createControlLines(): void {
@@ -421,13 +404,13 @@ export class SimulationApp {
         this.kite.localToWorld(kiteRightWorld);
 
         // Utiliser le ControlBarManager pour obtenir les positions des poignées
-        const handles = this.controlBarManager.getHandlePositions(this.kite.position);
+        const handles = this.controlBarManager.getHandlePositions(this.kite.getPosition());
 
         this.leftLine.geometry.setFromPoints([handles.left, kiteLeftWorld]);
         this.rightLine.geometry.setFromPoints([handles.right, kiteRightWorld]);
 
         // Mettre à jour la barre visuelle
-        this.controlBarManager.updateVisual(this.controlBar, this.kite);
+        this.controlBarManager.updateVisual(this.pilote.getControlBar().getGroup(), this.kite);
     }
 
     private setupControls(): void {
@@ -487,7 +470,7 @@ export class SimulationApp {
         // Forces aérodynamiques (V8 style - physique émergente)
         const aeroResult = AerodynamicsCalculator.calculateForcesWithNormals(
             apparentWind,
-            this.kite.quaternion,
+            this.kite.getGroup().quaternion,
             this.kite
         );
         let { lift, drag, torque } = aeroResult.forces;
@@ -506,7 +489,7 @@ export class SimulationApp {
         const { leftForce, rightForce, torque: lineTorque } = this.lineSystem.calculateLineTensions(
             this.kite,
             this.currentBarRotation,
-            this.controlBar.position
+            this.pilote.getControlBarWorldPosition()
         );
 
         // Force totale émergente : somme vectorielle de toutes les forces physiques
@@ -555,18 +538,22 @@ export class SimulationApp {
         }
 
         // Mise à jour position
-        this.kite.position.add(this.kiteState.velocity.clone().multiplyScalar(deltaTime));
+        const newPosition = this.kite.getPosition().clone().add(this.kiteState.velocity.clone().multiplyScalar(deltaTime));
+        this.kite.setPosition(newPosition);
 
         // *** CONTRAINTES GÉOMÉTRIQUES PURES (distance seulement) ***
         this.lineSystem.updateAndEnforceConstraints(
             this.kite,
             this.currentBarRotation,
-            this.controlBar.position
+            this.pilote.getControlBarWorldPosition()
         );
 
         // Empêcher de passer sous le sol
-        if (this.kite.position.y < CONFIG.kite.minHeight) {
-            this.kite.position.y = CONFIG.kite.minHeight;
+        const currentPos = this.kite.getPosition();
+        if (currentPos.y < CONFIG.kite.minHeight) {
+            const correctedPos = currentPos.clone();
+            correctedPos.y = CONFIG.kite.minHeight;
+            this.kite.setPosition(correctedPos);
             if (this.kiteState.velocity.y < 0) {
                 this.kiteState.velocity.y = 0;
             }
@@ -597,15 +584,17 @@ export class SimulationApp {
             const angle = this.kiteState.angularVelocity.length() * deltaTime;
             deltaRotation.setFromAxisAngle(axis, angle);
 
-            this.kite.quaternion.multiply(deltaRotation);
-            this.kite.quaternion.normalize();
+            const currentRotation = this.kite.getGroup().quaternion.clone();
+            currentRotation.multiply(deltaRotation);
+            currentRotation.normalize();
+            this.kite.getGroup().quaternion.copy(currentRotation);
         }
 
         // VALIDATION POSITION FINALE (évite les NaN)
         this.validatePosition();
 
         // Mise à jour position précédente pour prochaine frame
-        this.previousPosition.copy(this.kite.position);
+        this.previousPosition.copy(this.kite.getPosition());
     }
 
     /**
@@ -634,9 +623,10 @@ export class SimulationApp {
      * Valide la position finale (style SimulationV8)
      */
     private validatePosition(): void {
-        if (isNaN(this.kite.position.x) || isNaN(this.kite.position.y) || isNaN(this.kite.position.z)) {
+        const currentPos = this.kite.getPosition();
+        if (isNaN(currentPos.x) || isNaN(currentPos.y) || isNaN(currentPos.z)) {
             console.error(`⚠️ Position NaN détectée! Reset à la position précédente`);
-            this.kite.position.copy(this.previousPosition);
+            this.kite.setPosition(this.previousPosition);
             this.kiteState.velocity.set(0, 0, 0);
             this.kiteState.angularVelocity.set(0, 0, 0);
         }
@@ -666,8 +656,8 @@ export class SimulationApp {
      */
     private updateUIWithV8Metrics(): void {
         // Calculer les métriques de vol avancées
-        const kitePos = this.kite.position.clone();
-        const pilotPos = this.controlBar.position.clone();
+        const kitePos = this.kite.getPosition().clone();
+        const pilotPos = this.pilote.getControlBarWorldPosition();
         const distance = kitePos.distanceTo(pilotPos);
         const windSim = this.windSimulator;
         const wind = windSim.getWindAt(kitePos);
@@ -675,7 +665,7 @@ export class SimulationApp {
 
         // Calculer les métriques aérodynamiques
         const aeroMetrics = AerodynamicsCalculator.computeMetrics ?
-            AerodynamicsCalculator.computeMetrics(apparent, this.kite.quaternion) :
+            AerodynamicsCalculator.computeMetrics(apparent, this.kite.getGroup().quaternion) :
             { apparentSpeed: apparent.length(), liftMag: 0, dragMag: 0, lOverD: 0, aoaDeg: 0 };
 
         // Calculer l'asymétrie des forces
@@ -704,7 +694,7 @@ export class SimulationApp {
         // Mise à jour UI standard
         this.ui.updateUI(
             this.frameCount,
-            this.kite.position,
+            this.kite.getPosition(),
             this.kiteState.velocity.length(),
             this.isPlaying,
             this.debugMode
@@ -737,8 +727,8 @@ export class SimulationApp {
      * Log détaillé des métriques (style SimulationV8)
      */
     private logDetailedMetrics(): void {
-        const kitePos = this.kite.position;
-        const pilotPos = this.controlBar.position;
+        const kitePos = this.kite.getPosition();
+        const pilotPos = this.pilote.getControlBarWorldPosition();
         const distance = kitePos.distanceTo(pilotPos);
         const currentLineLength = this.lineSystem.getLineLength();
 
@@ -777,7 +767,7 @@ export class SimulationApp {
      */
     private logAllVectors(): void {
         // Calculs préliminaires
-        const realWind = this.windSimulator.getWindAt(this.kite.position);
+        const realWind = this.windSimulator.getWindAt(this.kite.getPosition());
         const apparentWind = this.windSimulator.getApparentWind(this.kiteState.velocity, 0);
         const lineTensions = this.lineSystem.getLineTensions();
 
@@ -820,8 +810,8 @@ export class SimulationApp {
         // Calculer le centre géométrique du kite
         const centerLocal = new THREE.Vector3(0, 0.325, 0); // Entre NEZ et SPINE_BAS
         const centerWorld = centerLocal.clone()
-            .applyQuaternion(this.kite.quaternion)
-            .add(this.kite.position);
+            .applyQuaternion(this.kite.getGroup().quaternion)
+            .add(this.kite.getPosition());
 
         // 1. Flèche de vitesse (VERT)
         if (this.kiteState.velocity.length() > 0.1) {
@@ -838,13 +828,13 @@ export class SimulationApp {
         }
 
         // 2. Flèche du vent réel (BLEU) - PART DU NEZ DU KITE
-        const realWind = this.windSimulator.getWindAt(this.kite.position);
+        const realWind = this.windSimulator.getWindAt(this.kite.getPosition());
         if (realWind.length() > 0.1) {
             // Calculer la position du nez du kite en coordonnées mondiales
             const nezLocal = KiteGeometry.POINTS.NEZ;
             const nezWorld = nezLocal.clone()
-                .applyQuaternion(this.kite.quaternion)
-                .add(this.kite.position);
+                .applyQuaternion(this.kite.getGroup().quaternion)
+                .add(this.kite.getPosition());
 
             const realWindArrow = new THREE.ArrowHelper(
                 realWind.clone().normalize(),
@@ -864,8 +854,8 @@ export class SimulationApp {
             // Calculer la position du nez du kite en coordonnées mondiales
             const nezLocal = KiteGeometry.POINTS.NEZ;
             const nezWorld = nezLocal.clone()
-                .applyQuaternion(this.kite.quaternion)
-                .add(this.kite.position);
+                .applyQuaternion(this.kite.getGroup().quaternion)
+                .add(this.kite.getPosition());
 
             const windArrow = new THREE.ArrowHelper(
                 apparentWind.clone().normalize(),
@@ -1034,10 +1024,10 @@ export class SimulationApp {
         const ctrlRight = this.kite.getPoint('CTRL_DROIT');
 
         if (ctrlLeft && ctrlRight) {
-            const leftWorld = ctrlLeft.clone().applyQuaternion(this.kite.quaternion).add(this.kite.position);
-            const rightWorld = ctrlRight.clone().applyQuaternion(this.kite.quaternion).add(this.kite.position);
+            const leftWorld = ctrlLeft.clone().applyQuaternion(this.kite.getGroup().quaternion).add(this.kite.getPosition());
+            const rightWorld = ctrlRight.clone().applyQuaternion(this.kite.getGroup().quaternion).add(this.kite.getPosition());
 
-            const handles = this.controlBarManager.getHandlePositions(this.kite.position);
+            const handles = this.controlBarManager.getHandlePositions(this.kite.getPosition());
             const lineTensions = this.lineSystem.getLineTensions();
 
             // Flèche tension ligne gauche (ROSE)
@@ -1343,14 +1333,14 @@ export class SimulationApp {
             console.log(`🔗 Longueur lignes mise à jour: ${length}m (avec contraintes PBD)`);
 
             // Repositionner le kite si les lignes deviennent trop courtes
-            const kitePosition = this.kite.position;
-            const pilotPosition = CONFIG.controlBar.position;
+            const kitePosition = this.kite.getPosition();
+            const pilotPosition = this.pilote.getControlBarWorldPosition();
             const currentDistance = kitePosition.distanceTo(pilotPosition);
 
             if (currentDistance > length) {
                 const direction = kitePosition.clone().sub(pilotPosition).normalize();
                 const newPosition = pilotPosition.clone().add(direction.multiplyScalar(length * 0.95));
-                this.kite.position.copy(newPosition);
+                this.kite.setPosition(newPosition);
                 this.kiteState.position.copy(newPosition);
                 console.log(`📍 Kite repositionné pour respecter les nouvelles contraintes de lignes`);
             }
@@ -1404,14 +1394,14 @@ export class SimulationApp {
 
     public resetSimulation(): void {
         // Reset position
-        const pilotPos = CONFIG.controlBar.position;
+        const pilotPos = this.pilote.getControlBarWorldPosition();
         const initialDistance = CONFIG.lines.defaultLength * 0.95;
         const kiteY = 7;
         const dy = kiteY - pilotPos.y;
         const horizontal = Math.max(0.1, Math.sqrt(Math.max(0, initialDistance * initialDistance - dy * dy)));
 
-        this.kite.position.set(pilotPos.x, kiteY, pilotPos.z - horizontal);
-        this.kite.quaternion.identity();
+        this.kite.setPosition(new THREE.Vector3(pilotPos.x, kiteY, pilotPos.z - horizontal));
+        this.kite.getGroup().quaternion.identity();
 
         // Reset état
         this.kiteState.velocity.set(0, 0, 0);

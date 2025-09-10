@@ -1,5 +1,5 @@
 /**
- * `control_bar.ts` - Gestion de la barre de contrôle 3D.
+ * `controlbar.ts` - Gestion de la barre de contrôle 3D.
  *
  * Cette classe est responsable de la création, de la mise à jour et de l'accès à la représentation 3D
  * de la barre de contrôle dans la simulation. Elle gère purement l'aspect visuel et la position
@@ -7,6 +7,7 @@
  */
 
 import * as THREE from 'three';
+import { C_objet, C_objetConfig } from './C_objet';
 
 // Constantes spécifiques à la géométrie de la barre de contrôle.
 // Ces valeurs sont des propriétés visuelles et non des constantes physiques globales.
@@ -18,14 +19,13 @@ const HANDLE_OFFSET_X = 0.4;        // Décalage des poignées par rapport au ce
 const INITIAL_BAR_HEIGHT = 1.4;     // Hauteur initiale de la barre par rapport à l'origine (mains du pilote)
 const MAX_TILT_ANGLE_RADIANS = 0.35; // Angle d'inclinaison maximal de la barre en radians (~20 degrés)
 
-export class ControlBar3D {
-  private group = new THREE.Group();
+export class ControlBar3D extends C_objet {
   private bar: THREE.Mesh;
   private leftOffset = new THREE.Vector3(-HANDLE_OFFSET_X, 0, 0);
   private rightOffset = new THREE.Vector3(HANDLE_OFFSET_X, 0, 0);
 
-  constructor() {
-    this.group.name = 'ControlBar3D';
+  constructor(config: C_objetConfig = {}) {
+    super(config);
 
     // Création de la barre principale (cylindre horizontal)
     const barGeometry = new THREE.CylinderGeometry(BAR_RADIUS, BAR_RADIUS, BAR_LENGTH, 12);
@@ -58,6 +58,10 @@ export class ControlBar3D {
 
     // Positionne la barre à la hauteur initiale des mains du pilote
     this.group.position.set(0, INITIAL_BAR_HEIGHT, 0);
+  }
+
+  protected createGeometry(): void {
+    // La géométrie est créée dans le constructeur
   }
 
   /**
@@ -95,5 +99,28 @@ export class ControlBar3D {
   getRightWorldPosition(target = new THREE.Vector3()): THREE.Vector3 {
     return target.copy(this.rightOffset).applyMatrix4(this.group.matrixWorld);
   }
-}
 
+  /**
+   * Retourne le groupe THREE.js pour ajout à la scène ou à un parent
+   */
+  getGroup(): THREE.Group {
+    return this.group;
+  }
+
+  /**
+   * Nettoie les ressources de la barre de contrôle
+   */
+  dispose(): void {
+    if (this.bar.geometry) {
+      this.bar.geometry.dispose();
+    }
+    if (this.bar.material) {
+      if (Array.isArray(this.bar.material)) {
+        this.bar.material.forEach(material => material.dispose());
+      } else {
+        this.bar.material.dispose();
+      }
+    }
+    this.group.clear();
+  }
+}
