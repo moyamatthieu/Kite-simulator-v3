@@ -9,7 +9,8 @@
  */
 
 import * as THREE from 'three';
-import { PhysicsConstants, KiteGeometry, CONFIG, AerodynamicForces, SimulationMetrics } from '../core/constants';
+import { PhysicsConstants, CONFIG, AerodynamicForces, SimulationMetrics } from '../core/constants';
+import { KiteGeometry } from '../objects/Kite';
 import { Kite } from '@objects/Kite';
 
 /**

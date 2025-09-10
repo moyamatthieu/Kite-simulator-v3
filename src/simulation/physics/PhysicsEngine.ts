@@ -52,7 +52,7 @@ class KiteController {
     // Lissage temporel des forces
     private smoothedForce: THREE.Vector3;
     private smoothedTorque: THREE.Vector3;
-    private readonly FORCE_SMOOTHING = 0.15;
+    private readonly FORCE_SMOOTHING = 0.25; // Lissage renforcé pour réduire oscillations
 
     constructor(kite: Kite) {
         this.kite = kite;

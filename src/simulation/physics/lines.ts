@@ -366,12 +366,15 @@ export class LineSystem {
       const denom = invMass + alpha.lengthSq() * invInertia;
       const lambda = C / Math.max(denom, PhysicsConstants.EPSILON);
 
-      // Corrections de position
-      const dPos = n.clone().multiplyScalar(-invMass * lambda);
+      // Facteur d'amortissement pour réduire les oscillations (0.7 = 30% de correction)
+      const dampingFactor = 0.7;
+
+      // Corrections de position avec amortissement
+      const dPos = n.clone().multiplyScalar(-invMass * lambda * dampingFactor);
       predictedPosition.add(dPos);
 
-      // Corrections d'orientation
-      const dTheta = alpha.clone().multiplyScalar(-invInertia * lambda);
+      // Corrections d'orientation avec amortissement
+      const dTheta = alpha.clone().multiplyScalar(-invInertia * lambda * dampingFactor);
       const angle = dTheta.length();
       if (angle > PhysicsConstants.EPSILON) {
         const axis = dTheta.normalize();

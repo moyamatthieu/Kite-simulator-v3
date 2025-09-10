@@ -14,7 +14,6 @@ import * as THREE from 'three';
 import { AerodynamicsCalculator } from './AerodynamicsCalculator';
 import { WindSimulator } from './WindSimulator';
 import { KiteController, KiteWarnings } from './KiteController';
-import { LineSystemV8 } from './LineSystemV8';
 import { CONFIG, WindParams } from '../core/constants';
 import { Kite } from '@objects/Kite';
 

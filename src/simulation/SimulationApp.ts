@@ -6,10 +6,11 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Kite } from '@objects/Kite';
+import { Kite } from './objects/Kite';
 import { PhysicsEngine } from './physics/PhysicsEngine';
 import { DebugVisualizer } from './physics/DebugVisualizer';
-import { CONFIG, PhysicsConstants, WindParams, KiteState, HandlePositions, KiteGeometry } from './core/constants';
+import { CONFIG, PhysicsConstants, WindParams, KiteState, HandlePositions } from './core/constants';
+import { KiteGeometry } from './objects/Kite';
 import { CompactUI } from './ui/CompactUI';
 import { WindSimulator } from './physics/WindSimulator';
 import { AerodynamicsCalculator } from './physics/AerodynamicsCalculator';
@@ -192,7 +193,7 @@ export class SimulationApp {
     // Lissage temporel des forces (amélioration V8)
     private smoothedForce = new THREE.Vector3();
     private smoothedTorque = new THREE.Vector3();
-    private readonly FORCE_SMOOTHING = 0.15; // Lissage léger (85% de la nouvelle force appliquée)
+    private readonly FORCE_SMOOTHING = 0.25; // Lissage renforcé (75% de la nouvelle force appliquée)
 
     // Debug visuel des forces
     private debugArrows: THREE.ArrowHelper[] = [];
@@ -478,8 +479,8 @@ export class SimulationApp {
         // Limiter le pas de temps
         deltaTime = Math.min(deltaTime, CONFIG.physics.deltaTimeMax);
 
-        // Lisser la rotation de la barre
-        this.currentBarRotation += (this.targetBarRotation - this.currentBarRotation) * 0.1;
+        // Lisser la rotation de la barre - lissage plus fort pour éviter oscillations
+        this.currentBarRotation += (this.targetBarRotation - this.currentBarRotation) * 0.05;
 
         // Vent apparent
         const apparentWind = this.windSimulator.getApparentWind(this.kiteState.velocity, deltaTime);

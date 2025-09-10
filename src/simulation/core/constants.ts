@@ -16,7 +16,7 @@ import * as THREE from 'three';
 export class PhysicsConstants {
     static readonly EPSILON = 1e-4;                    // Un tout petit nombre pour dire "presque zéro"
     static readonly CONTROL_DEADZONE = 0.01;           // La barre ne réagit pas si vous la bougez très peu
-    static readonly LINE_CONSTRAINT_TOLERANCE = 0.0005; // Les lignes peuvent s'étirer de 5mm max (marge d'erreur)
+    static readonly LINE_CONSTRAINT_TOLERANCE = 0.02; // Tolérance augmentée pour réduire les oscillations (2cm)
     static readonly LINE_TENSION_FACTOR = 0.99;        // Les lignes restent un peu plus courtes pour rester tendues
     static readonly GROUND_FRICTION = 0.85;            // Le sol freine le kite de 15% s'il le touche
     static readonly CATENARY_SEGMENTS = 5;             // Nombre de points pour dessiner la courbe des lignes
@@ -24,72 +24,16 @@ export class PhysicsConstants {
     // Limites de sécurité - pour que la simulation ne devienne pas folle
     static readonly MAX_FORCE = 2500;                  // Force max pour montée au zénith
     static readonly MAX_VELOCITY = 40;                 // Vitesse max : 40 m/s = 144 km/h
-    static readonly MAX_ANGULAR_VELOCITY = 25;          // Rotation max : presque 1 tour par seconde
-    static readonly MAX_ACCELERATION = 150;             // Accélération max pour montée verticale
-    static readonly MAX_ANGULAR_ACCELERATION = 20;     // La rotation ne peut pas s'emballer
+    static readonly MAX_ANGULAR_VELOCITY = 15;          // Rotation max réduite pour moins d'oscillations
+    static readonly MAX_ACCELERATION = 500;             // Accélération max augmentée pour éviter les coupures
+    static readonly MAX_ANGULAR_ACCELERATION = 12;     // La rotation ne peut pas s'emballer
 }
 
 // ==============================================================================
-// GÉOMÉTRIE DU CERF-VOLANT - EXACTEMENT COMME V8
+// GÉOMÉTRIE DU CERF-VOLANT - DÉPLACÉE VERS objects/Kite.ts
 // ==============================================================================
-
-/**
- * La forme du cerf-volant - comme un plan de construction
- * On définit où sont tous les points importants du cerf-volant
- */
-export class KiteGeometry {
-    // Les points clés du cerf-volant (comme les coins d'une maison)
-    // Coordonnées en mètres : [gauche/droite, haut/bas, avant/arrière]
-    static readonly POINTS = {
-        NEZ: new THREE.Vector3(0, 0.65, 0),                      // Le bout pointu en haut
-        SPINE_BAS: new THREE.Vector3(0, 0, 0),                   // Le centre en bas
-        BORD_GAUCHE: new THREE.Vector3(-0.825, 0, 0),            // L'extrémité de l'aile gauche
-        BORD_DROIT: new THREE.Vector3(0.825, 0, 0),              // L'extrémité de l'aile droite
-        WHISKER_GAUCHE: new THREE.Vector3(-0.4125, 0.1, -0.15),  // Stabilisateur gauche (légèrement en arrière)
-        WHISKER_DROIT: new THREE.Vector3(0.4125, 0.1, -0.15),    // Stabilisateur droit (légèrement en arrière)
-        CTRL_GAUCHE: new THREE.Vector3(-0.15, 0.3, 0.4),         // Où s'attache la ligne gauche
-        CTRL_DROIT: new THREE.Vector3(0.15, 0.3, 0.4)            // Où s'attache la ligne droite
-    };
-
-    // Le cerf-volant est fait de 4 triangles de tissu
-    // Chaque triangle a 3 coins (vertices) et une surface en mètres carrés
-    static readonly SURFACES = [
-        {
-            vertices: [
-                KiteGeometry.POINTS.NEZ,
-                KiteGeometry.POINTS.BORD_GAUCHE,
-                KiteGeometry.POINTS.WHISKER_GAUCHE
-            ],
-            area: 0.23 // m² - Surface haute gauche
-        },
-        {
-            vertices: [
-                KiteGeometry.POINTS.NEZ,
-                KiteGeometry.POINTS.WHISKER_GAUCHE,
-                KiteGeometry.POINTS.SPINE_BAS
-            ],
-            area: 0.11 // m² - Surface basse gauche
-        },
-        {
-            vertices: [
-                KiteGeometry.POINTS.NEZ,
-                KiteGeometry.POINTS.BORD_DROIT,
-                KiteGeometry.POINTS.WHISKER_DROIT
-            ],
-            area: 0.23 // m² - Surface haute droite
-        },
-        {
-            vertices: [
-                KiteGeometry.POINTS.NEZ,
-                KiteGeometry.POINTS.WHISKER_DROIT,
-                KiteGeometry.POINTS.SPINE_BAS
-            ],
-            area: 0.11 // m² - Surface basse droite
-        }
-    ];
-
-    static readonly TOTAL_AREA = 0.68; // m² - Surface totale
-}
+// La classe KiteGeometry est maintenant définie dans src/simulation/objects/Kite.ts
+// pour une meilleure encapsulation et cohérence.
 
 // ==============================================================================
 // CONFIGURATION ÉPURÉE INSPIRÉE DE V8
@@ -104,9 +48,9 @@ export const CONFIG = {
         gravity: 9.81,              // La gravité terrestre (fait tomber les objets)
         airDensity: 1.225,          // Densité de l'air (l'air épais pousse plus fort)
         deltaTimeMax: 0.016,        // Mise à jour max 60 fois par seconde (pour rester fluide)
-        angularDamping: 0.85,       // Amortissement angulaire équilibré
-        linearDamping: 0.96,        // Amortissement réduit pour permettre montée au zénith (4% de perte)
-        angularDragCoeff: 0.10      // Résistance rotation augmentée pour moins d'oscillations
+        angularDamping: 0.88,       // Amortissement angulaire renforcé pour stabilité
+        linearDamping: 0.98,        // Amortissement renforcé pour réduire les oscillations
+        angularDragCoeff: 0.15      // Résistance rotation augmentée pour moins d'oscillations
     },
     aero: {
         liftScale: 1.5,             // Portance augmentée pour meilleur vol
@@ -115,15 +59,15 @@ export const CONFIG = {
     },
     kite: {
         mass: 0.28,                 // kg - Masse du cerf-volant
-        area: KiteGeometry.TOTAL_AREA, // m² - Surface totale
+        area: 0.68, // m² - Surface totale (4 surfaces de 0.23 + 0.11 + 0.23 + 0.11)
         inertia: 0.08,              // kg·m² - Moment d'inertie réduit pour meilleure réactivité
         minHeight: 0.5              // m - Altitude minimale (plus haut pour éviter le sol)
     },
     lines: {
         defaultLength: 25,          // m - Longueur augmentée pour permettre montée au zénith
-        stiffness: 25000,           // N/m - Rigidité renforcée pour mieux maintenir le kite
-        maxTension: 1000,           // N - Tension max augmentée pour éviter rupture
-        maxSag: 0.008,              // Affaissement réduit pour lignes plus tendues
+        stiffness: 15000,           // N/m - Rigidité réduite pour éviter oscillations
+        maxTension: 800,            // N - Tension max réduite pour plus de souplesse
+        maxSag: 0.015,              // Affaissement augmenté pour lignes plus souples
         catenarySagFactor: 3        // Facteur de forme caténaire ajusté
     },
     wind: {

@@ -3,7 +3,8 @@
  */
 
 import * as THREE from 'three';
-import { CONFIG, PhysicsConstants, KiteGeometry } from '../core/constants';
+import { CONFIG, PhysicsConstants } from '../core/constants';
+import { KiteGeometry } from '../objects/Kite';
 
 export class GroundCollisionSystem {
     private groundLevel: number;
