@@ -5,7 +5,14 @@
       "WebSearch",
       "Bash(tree:*)",
       "Bash(npm run build:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(node fix-imports.js)",
+      "Bash(npm install)",
+      "Bash(npm run typecheck:*)",
+      "Bash(git init:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,108 +1,108 @@
-# 🎨🪁 CAO Paramétrique + Simulation Cerf-volant
+# 🪁 Kite Simulator Project - Simulation Physique Avancée
 
-Projet DIY simple : Modélisation 3D paramétrique + Simulation physique de cerf-volant.
+**Projet de simulation de cerf-volant avec physique émergente et architecture modulaire**
 
-## 🚀 Utilisation Ultra-Simple
+## 🎯 **Focus Principal : Simulation Réaliste**
+
+Ce projet est maintenant **centré sur la simulation physique** avec une architecture propre et indépendante.
+
+### 🚀 **Projet Principal : kite-sim-v1**
+
+**Simulateur de cerf-volant V1** - Architecture propre et moderne
+- **Location** : `kite-sim-v1/`
+- **Tech Stack** : TypeScript + Three.js + Vite  
+- **Physique** : Émergente 100% - Position-Based Dynamics
+- **Interface** : Debug avancé avec visualisation forces
 
 ```bash
-# Installation
+cd kite-sim-v1
 npm install
+npm run dev    # http://localhost:3001
+```
 
-# Développement
+## ⚡ **Démarrage Simulation**
+
+```bash
+# 1. Aller dans le projet simulation  
+cd kite-sim-v1
+
+# 2. Installer et lancer
+npm install
 npm run dev
 
-# Build
-npm run build
+# 3. Ouvrir http://localhost:3001
 ```
 
-## 📱 2 Pages, Point Final
+### 🎮 **Contrôles Simulation**
+- **← → ou Q/D** : Piloter la barre de contrôle
+- **Espace** : Toggle mode debug  
+- **Interface** : Configuration vent, longueur lignes, etc.
 
-### 🎨 [index.html](http://localhost:3000) - CAO Paramétrique
-- Modélisation 3D avec objets paramétriques
-- Export vers Godot (.tscn) et OBJ
-- Hot reload des objets
-- Interface épurée
+## 📁 **Architecture Repository**
 
-### 🪁 [simulation.html](http://localhost:3000/simulation.html) - Simulation V10
-- Physique émergente pure du cerf-volant
-- Interface KISS avec contrôles essentiels
-- Vent réaliste avec turbulences
-- Debug visuel des forces
+### 🎮 **kite-sim-v1/** - Simulation Indépendante
+- ✅ **Projet principal** - Simulation pure
+- ✅ **Architecture modulaire** avec alias `@core`, `@physics`, etc.
+- ✅ **Physique V8** intégrée avec corrections oscillations
+- ✅ **Documentation complète** - README dédié
+- ✅ **Configuration optimisée** - Vite + TypeScript
 
-## 🌿 Gestion des Versions avec Git
+### 📦 **src/simulation/** - Source Original  
+- 📚 Code source de référence
+- 🔄 Base pour développement kite-sim-v1
+- 🗃️ Maintenu pour historique
 
-### Branches
-- `main` : Version stable CAO + Simulation V10
-- `v8-stable` : Backup simulation V8
-- `cao-only` : CAO pur sans simulation
-- `experimental` : Nouvelles features
+### 📋 **archive-legacy/** - Fichiers CAO Archivés
+- 🗂️ Interfaces HTML CAD (cao.html, debug-scene.html)  
+- 📖 Documentation legacy (CAO_DESIGN_V2.md, AGENTS.md)
+- 🖼️ Assets anciens (screenshots, configs)
 
-### Workflow
+## 🌿 **Gestion des Versions avec Git**
+
+### Branches Actuelles
+- `simV1` : **Branche active** - Projet simulation indépendant
+- `v13` : Développement précédent avec corrections
+- `main` : Version stable de référence  
+
+### Workflow Focus Simulation
 ```bash
-# Travailler sur une nouvelle version
-git checkout -b v11-experimental
-# ... développement
-git commit -m "feat: nouvelle physique V11"
+# Développement simulation
+git checkout simV1
+cd kite-sim-v1
+npm run dev
 
-# Version stable
-git checkout main
-git merge v11-experimental  # si stable
+# Features nouvelles
+git checkout -b simV1-feature-terrain
+# ... développement dans kite-sim-v1/
+git commit -m "feat: terrain 3D avec obstacles"
 ```
 
-## 📁 Architecture KISS
+## 🔬 **Fonctionnalités Simulation**
 
-```
-/
-├── index.html           # 🎨 CAO
-├── simulation.html      # 🪁 Simulation
-├── src/
-│   ├── main.ts         # App CAO
-│   ├── core/           # Système 3D de base
-│   ├── objects/        # Objets 3D (auto-découverts)
-│   ├── simulation/
-│   │   └── simulationV10.ts  # Simulation actuelle
-│   └── ...
-```
+### ⚡ **Physique Émergente**
+- **Zéro coefficient artificiel** - Physique pure 100%
+- **4 surfaces triangulaires** avec forces par face
+- **Position-Based Dynamics** pour contraintes lignes
+- **Corrections oscillations** appliquées
 
-## 🎯 Créer un Nouvel Objet
+### 🌪️ **Environnement Réaliste**  
+- **Vent configurable** : 1-300 km/h
+- **Turbulence** : Conditions météo variables
+- **Aérodynamique** : Calculs par triangle de tissu
 
-```typescript
-// src/objects/MonObjet.ts
-import { StructuredObject } from '@core/StructuredObject';
+### 🔍 **Debug Avancé**
+- **Vecteurs forces** : Visualisation temps réel
+- **Métriques V8** : Position, vitesses, tensions
+- **Console détaillée** : Logs physiques complets
 
-export class MonObjet extends StructuredObject {
-    constructor(params = {}) {
-        super("Mon Objet");
-        this.init(); // IMPORTANT !
-    }
-    
-    protected definePoints(): void {
-        this.setPoint('center', [0, 0, 0]);
-    }
-    
-    protected buildStructure(): void {
-        // Votre logique ici
-    }
-}
-```
+## 📖 **Documentation**
 
-Pas besoin d'enregistrement - l'AutoLoader découvre tout automatiquement ! 🎉
-
-## 🎮 Compatible Godot
-
-- Export direct .tscn
-- Points anatomiques → Node3D
-- Architecture compatible
-- Migration facile
-
-## 📝 Conventions
-
-- **Français** : Communication en français
-- **KISS** : Keep It Simple, Stupid
-- **Git Branches** : Versions via branches
-- **Hot Reload** : Modifications instantanées
-- **No Loader** : Chargement direct des pages
+- **kite-sim-v1/README.md** - Guide complet simulation
+- **CLAUDE.md** - Instructions développement général  
+- **archive-legacy/** - Documentation CAO archivée
 
 ---
 
-**Philosophie** : Simple, efficace, sans sur-ingénierie ! 🎯
+**🪁 Kite Simulator Project** - *Simulation Physique de Nouvelle Génération*
+
+**Focus actuel** : `kite-sim-v1/` - Projet simulation indépendant et moderne
